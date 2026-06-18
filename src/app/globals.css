@@ -1,26 +1,31 @@
 @import "tailwindcss";
 
+/* Predictive Success brand tokens (approx — confirm against brand guide) */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --psc-red: #ed1c24; /* logo mark — primary accent */
+  --psc-gold: #f5a800; /* underline — secondary accent */
+  --psc-black: #111111; /* wordmark / text */
+  --psc-paper: #ffffff; /* background */
+  --psc-gray-1: #b3b3b3;
+  --psc-gray-2: #6e6e6e;
+  --psc-gray-3: #3a3a3a;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-psc-red: var(--psc-red);
+  --color-psc-gold: var(--psc-gold);
+  --color-psc-black: var(--psc-black);
+  --color-psc-paper: var(--psc-paper);
+  --color-psc-gray-1: var(--psc-gray-1);
+  --color-psc-gray-2: var(--psc-gray-2);
+  --color-psc-gray-3: var(--psc-gray-3);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
+/* Workshop screens are a controlled environment — keep a single light theme. */
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--psc-paper);
+  color: var(--psc-black);
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
 }
