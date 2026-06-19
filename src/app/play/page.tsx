@@ -4,17 +4,52 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import PlayerRoster from "@/components/PlayerRoster";
 import SetupNotice from "@/components/SetupNotice";
 import { Wordmark } from "@/components/brand/Wordmark";
+import { PhoneButtons } from "@/components/quiz/PhoneButtons";
+import { Glyph, TILES } from "@/components/quiz/tiles";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { isFirebaseConfigured } from "@/lib/firebase";
 import {
   joinRoom,
   roomExists,
-  subscribePlayers,
-  type Player,
+  submitAnswer,
+  subscribeRoom,
+  type Room,
 } from "@/lib/room";
 
 const PLAYER_ID_KEY = "rtr:playerId";
 const SESSION_KEY = "rtr:session";
+
+/** Full-screen "look up at the big screen" state between actions. */
+function PlayerWait({
+  emoji,
+  title,
+  subtitle,
+  dark = false,
+}: {
+  emoji: string;
+  title: string;
+  subtitle: string;
+  dark?: boolean;
+}) {
+  return (
+    <main
+      className={`flex flex-1 flex-col items-center justify-center px-6 text-center ${
+        dark ? "bg-psc-ink text-white" : "wash"
+      }`}
+      style={{ animation: "var(--animate-rise)" }}
+    >
+      <span className="text-6xl" aria-hidden>
+        {emoji}
+      </span>
+      <h1 className="mt-4 font-display text-4xl font-black sm:text-5xl">
+        {title}
+      </h1>
+      <p className={`mt-2 text-lg ${dark ? "text-white/70" : "text-psc-gray-2"}`}>
+        {subtitle}
+      </p>
+    </main>
+  );
+}
 
 /** Stable per-device id so a dropped phone reconnects as the same player. */
 function getPlayerId(): string {
@@ -30,11 +65,13 @@ export default function PlayPage() {
   const [pin, setPin] = useState("");
   const [name, setName] = useState("");
   const [joined, setJoined] = useState(false);
-  const [players, setPlayers] = useState<Player[]>([]);
+  const [room, setRoom] = useState<Room | null>(null);
   const [joining, setJoining] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [playerId, setPlayerId] = useState("");
   const [fromLink, setFromLink] = useState(false); // arrived via QR deep-link
+  const [answeredIndex, setAnsweredIndex] = useState<number | null>(null);
+  const [answeredChoice, setAnsweredChoice] = useState<number | null>(null);
   const nameRef = useRef<HTMLInputElement>(null);
   const unsubscribe = useRef<(() => void) | null>(null);
 
@@ -78,10 +115,10 @@ export default function PlayPage() {
   }, []);
   /* eslint-enable react-hooks/set-state-in-effect */
 
-  // Live roster once we're in a room.
+  // Live room (status, current question, roster) once we're in.
   useEffect(() => {
     if (!joined || !pin) return;
-    unsubscribe.current = subscribePlayers(pin, setPlayers);
+    unsubscribe.current = subscribeRoom(pin, setRoom);
     return () => {
       unsubscribe.current?.();
       unsubscribe.current = null;
@@ -134,14 +171,94 @@ export default function PlayPage() {
     unsubscribe.current?.();
     unsubscribe.current = null;
     setJoined(false);
-    setPlayers([]);
+    setRoom(null);
     setName("");
   }, []);
 
+  const handlePick = useCallback(
+    (choice: number) => {
+      if (!room || room.status !== "question") return;
+      const qi = room.questionIndex;
+      // Optimistic: lock the UI immediately, then write to Firebase.
+      setAnsweredChoice(choice);
+      setAnsweredIndex(qi);
+      void submitAnswer(pin, qi, playerId, choice);
+    },
+    [room, pin, playerId],
+  );
+
   if (!isFirebaseConfigured) return <SetupNotice />;
 
-  // ---- Joined: the waiting-room controller -----------------------------
+  // ---- Joined: lobby → question → reveal → podium ----------------------
   if (joined) {
+    const status = room?.status ?? "lobby";
+    const qIndex = room?.questionIndex ?? 0;
+    const hasAnswered = answeredIndex === qIndex;
+
+    // Live question, not yet answered: ONLY the four shape buttons (look up!).
+    if (status === "question" && !hasAnswered) {
+      return (
+        <main className="flex flex-1 flex-col bg-psc-ink px-4 pb-4 pt-3">
+          <p className="py-2 text-center text-sm font-bold uppercase tracking-[0.18em] text-white/55">
+            Tap your answer · look up 👀
+          </p>
+          <div className="min-h-0 flex-1">
+            <PhoneButtons onPick={handlePick} />
+          </div>
+        </main>
+      );
+    }
+
+    // Answered — show the chosen tile and hold.
+    if (status === "question" && hasAnswered) {
+      const tile = answeredChoice !== null ? TILES[answeredChoice] : null;
+      return (
+        <main
+          className="flex flex-1 flex-col items-center justify-center gap-6 bg-psc-ink px-6 text-center text-white"
+          style={{ animation: "var(--animate-pop)" }}
+        >
+          {tile && (
+            <div
+              style={{ backgroundColor: tile.bg }}
+              className="flex size-28 items-center justify-center rounded-3xl shadow-[0_8px_0_rgba(0,0,0,0.3)]"
+            >
+              <Glyph kind={tile.kind} className="size-1/2" />
+            </div>
+          )}
+          <div>
+            <h1 className="font-display text-4xl font-black sm:text-5xl">
+              Locked in!
+            </h1>
+            <p className="mt-2 text-lg text-white/70">
+              Look up at the big screen 👀
+            </p>
+          </div>
+        </main>
+      );
+    }
+
+    if (status === "reveal") {
+      return (
+        <PlayerWait
+          dark
+          emoji="👀"
+          title={hasAnswered ? "Answer locked" : "Time's up!"}
+          subtitle="Check the big screen for the answer."
+        />
+      );
+    }
+
+    if (status === "podium") {
+      return (
+        <PlayerWait
+          emoji="🎉"
+          title="Thanks for playing!"
+          subtitle="That's a wrap — look up for the results."
+        />
+      );
+    }
+
+    // Lobby (or room still loading).
     return (
       <main className="wash flex flex-1 flex-col items-center px-6 py-10 text-center">
         <div
@@ -165,7 +282,7 @@ export default function PlayPage() {
 
           <div className="mt-7 w-full rounded-3xl border border-black/5 bg-white p-5 text-left shadow-[0_2px_24px_rgba(17,17,17,0.07)]">
             <PlayerRoster
-              players={players}
+              players={room?.players ?? []}
               highlightId={playerId}
               emptyLabel="You're first in — hang tight!"
             />

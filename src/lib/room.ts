@@ -35,6 +35,7 @@ export type Room = {
   status: RoomStatus;
   questionIndex: number;
   config: RoomConfig;
+  questionIds: string[];
   players: Player[];
 };
 
@@ -103,12 +104,70 @@ export async function joinRoom(
   } satisfies PlayerRecord);
 }
 
-/** Host begins the game — flips the room out of the lobby. */
-export async function startGame(pin: string): Promise<void> {
+/**
+ * Host begins the game with a fixed set of questions (so every client shows
+ * the same ones) and opens the first question.
+ */
+export async function startGame(
+  pin: string,
+  questionIds: string[],
+): Promise<void> {
   await update(ref(getDb(), `rooms/${pin}`), {
     status: "question" satisfies RoomStatus,
     questionIndex: 0,
+    questionIds,
     questionStartedAt: serverTimestamp(),
+  });
+}
+
+/** A player locks in their answer for the current question. */
+export async function submitAnswer(
+  pin: string,
+  questionIndex: number,
+  playerId: string,
+  choice: number,
+): Promise<void> {
+  await set(ref(getDb(), `rooms/${pin}/answers/${questionIndex}/${playerId}`), {
+    choice,
+    answeredAt: serverTimestamp(),
+  });
+}
+
+/** Host (or the timer) reveals the correct answer for the current question. */
+export async function revealQuestion(pin: string): Promise<void> {
+  await update(ref(getDb(), `rooms/${pin}`), {
+    status: "reveal" satisfies RoomStatus,
+  });
+}
+
+/** Host advances to the next question. */
+export async function nextQuestion(
+  pin: string,
+  nextIndex: number,
+): Promise<void> {
+  await update(ref(getDb(), `rooms/${pin}`), {
+    status: "question" satisfies RoomStatus,
+    questionIndex: nextIndex,
+    questionStartedAt: serverTimestamp(),
+  });
+}
+
+/** Host ends the round (leaderboard/podium arrive in a later phase). */
+export async function endGame(pin: string): Promise<void> {
+  await update(ref(getDb(), `rooms/${pin}`), {
+    status: "podium" satisfies RoomStatus,
+  });
+}
+
+/** Live count of how many players have answered the given question. */
+export function subscribeAnswerCount(
+  pin: string,
+  questionIndex: number,
+  onChange: (count: number) => void,
+): () => void {
+  const answersRef = ref(getDb(), `rooms/${pin}/answers/${questionIndex}`);
+  return onValue(answersRef, (snap) => {
+    onChange(snap.exists() ? Object.keys(snap.val()).length : 0);
   });
 }
 
@@ -144,12 +203,14 @@ export function subscribeRoom(
       status?: RoomStatus;
       questionIndex?: number;
       config?: Partial<RoomConfig>;
+      questionIds?: string[];
       players?: Record<string, PlayerRecord> | null;
     };
     onChange({
       status: v.status ?? "lobby",
       questionIndex: v.questionIndex ?? 0,
       config: { ...DEFAULT_CONFIG, ...v.config },
+      questionIds: v.questionIds ?? [],
       players: parsePlayers(v.players ?? null),
     });
   });

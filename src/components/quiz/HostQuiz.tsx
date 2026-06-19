@@ -1,0 +1,160 @@
+"use client";
+
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Button } from "@/components/ui/Button";
+import { questionById } from "@/lib/questions";
+import {
+  endGame,
+  nextQuestion,
+  revealQuestion,
+  subscribeAnswerCount,
+  type Room,
+} from "@/lib/room";
+import { Countdown } from "./Countdown";
+import { Glyph, TILES } from "./tiles";
+
+export function HostQuiz({ pin, room }: { pin: string; room: Room }) {
+  const { status, questionIndex, config, players } = room;
+  const total = room.questionIds.length || config.totalQuestions;
+  const question = questionById(room.questionIds[questionIndex] ?? "");
+
+  const [remaining, setRemaining] = useState(config.secondsPerQuestion);
+  const [answered, setAnswered] = useState(0);
+  const [advancing, setAdvancing] = useState(false);
+  // Guard so a question is only revealed once (timer + "all answered" can race).
+  const revealedFor = useRef<number | null>(null);
+
+  const reveal = useCallback(() => {
+    if (status !== "question") return;
+    if (revealedFor.current === questionIndex) return;
+    revealedFor.current = questionIndex;
+    void revealQuestion(pin);
+  }, [pin, status, questionIndex]);
+
+  // Live count of answers for this question.
+  useEffect(() => {
+    if (status !== "question") return;
+    return subscribeAnswerCount(pin, questionIndex, setAnswered);
+  }, [pin, status, questionIndex]);
+
+  // Per-question countdown. Host-authoritative, driven by local time.
+  useEffect(() => {
+    if (status !== "question") return;
+    const secs = config.secondsPerQuestion;
+    const startedAt = Date.now();
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset the visible timer when a new question opens
+    setRemaining(secs);
+    const id = setInterval(() => {
+      const left = Math.max(0, secs - (Date.now() - startedAt) / 1000);
+      setRemaining(left);
+      if (left <= 0) {
+        clearInterval(id);
+        reveal();
+      }
+    }, 100);
+    return () => clearInterval(id);
+  }, [status, questionIndex, config.secondsPerQuestion, reveal]);
+
+  // Everyone answered → reveal early.
+  useEffect(() => {
+    if (status === "question" && players.length > 0 && answered >= players.length) {
+      reveal();
+    }
+  }, [status, answered, players.length, reveal]);
+
+  const isReveal = status === "reveal";
+  const isLast = questionIndex >= total - 1;
+
+  const handleNext = useCallback(async () => {
+    setAdvancing(true);
+    try {
+      if (isLast) await endGame(pin);
+      else await nextQuestion(pin, questionIndex + 1);
+    } finally {
+      setAdvancing(false);
+    }
+  }, [pin, isLast, questionIndex]);
+
+  if (!question) {
+    return (
+      <main className="stage flex flex-1 items-center justify-center">
+        <p className="text-white/60">Loading question…</p>
+      </main>
+    );
+  }
+
+  return (
+    <main className="stage flex flex-1 flex-col px-6 py-6 sm:px-10">
+      {/* Header: counter · timer · answered count */}
+      <div className="flex items-center justify-between gap-4">
+        <span className="rounded-full bg-white/10 px-4 py-1.5 text-sm font-bold uppercase tracking-wide text-white/80">
+          Question {questionIndex + 1} / {total}
+        </span>
+        <span className="hidden text-sm font-semibold uppercase tracking-[0.18em] text-psc-gold sm:inline">
+          {question.tier} · {question.topic}
+        </span>
+        <span className="rounded-full bg-white/10 px-4 py-1.5 text-sm font-bold tabular-nums text-white/80">
+          {answered} / {players.length} answered
+        </span>
+      </div>
+
+      {/* Question + timer */}
+      <div className="flex flex-col items-center gap-6 py-6 text-center">
+        {status === "question" ? (
+          <Countdown remaining={remaining} total={config.secondsPerQuestion} />
+        ) : (
+          <span className="rounded-full bg-psc-gold px-5 py-2 font-display text-lg font-extrabold text-psc-black">
+            Answer revealed
+          </span>
+        )}
+        <h1 className="max-w-4xl font-display text-3xl font-black leading-tight sm:text-5xl">
+          {question.q}
+        </h1>
+      </div>
+
+      {/* 2×2 answer tiles */}
+      <div className="mx-auto grid w-full max-w-5xl flex-1 grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
+        {question.options.map((opt, i) => {
+          const tile = TILES[i];
+          const correct = isReveal && i === question.answer;
+          const dimmed = isReveal && i !== question.answer;
+          return (
+            <div
+              key={tile.label}
+              style={{ backgroundColor: tile.bg }}
+              className={[
+                "flex items-center gap-4 rounded-3xl px-6 py-5 transition-all duration-300 sm:gap-5 sm:px-8 sm:py-7",
+                dimmed ? "opacity-30 grayscale" : "",
+                correct
+                  ? "shadow-[0_0_0_5px_#fff,0_10px_0_rgba(0,0,0,0.3)] scale-[1.02]"
+                  : "shadow-[0_8px_0_rgba(0,0,0,0.25)]",
+              ].join(" ")}
+            >
+              <Glyph kind={tile.kind} className="size-9 shrink-0 sm:size-12" />
+              <span className="font-display text-xl font-extrabold text-white sm:text-3xl">
+                {opt}
+              </span>
+              {correct && (
+                <span className="ml-auto text-2xl sm:text-4xl" aria-label="correct">
+                  ✓
+                </span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Reveal: teach moment + advance */}
+      {isReveal && (
+        <div className="mx-auto mt-6 flex w-full max-w-3xl flex-col items-center gap-4 text-center">
+          <p className="text-lg font-medium text-white/85 sm:text-xl">
+            💡 {question.teach}
+          </p>
+          <Button onClick={handleNext} loading={advancing} variant="gold" size="lg">
+            {isLast ? "Finish round →" : "Next question →"}
+          </Button>
+        </div>
+      )}
+    </main>
+  );
+}

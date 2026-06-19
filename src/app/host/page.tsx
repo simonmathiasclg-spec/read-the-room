@@ -5,9 +5,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import PlayerRoster from "@/components/PlayerRoster";
 import SetupNotice from "@/components/SetupNotice";
 import { Wordmark } from "@/components/brand/Wordmark";
+import { HostQuiz } from "@/components/quiz/HostQuiz";
 import { Button } from "@/components/ui/Button";
 import { Segmented } from "@/components/ui/Segmented";
 import { isFirebaseConfigured } from "@/lib/firebase";
+import { pickQuestionIds } from "@/lib/questions";
 import {
   createRoom,
   startGame,
@@ -89,16 +91,17 @@ export default function HostPage() {
   }, [config]);
 
   const handleStart = useCallback(async () => {
-    if (!pin) return;
+    if (!pin || !room) return;
     setStarting(true);
     setError(null);
     try {
-      await startGame(pin);
+      const questionIds = pickQuestionIds(room.config.totalQuestions);
+      await startGame(pin, questionIds);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't start the game.");
       setStarting(false);
     }
-  }, [pin]);
+  }, [pin, room]);
 
   const handleNewRoom = useCallback(() => {
     localStorage.removeItem(HOST_PIN_KEY);
@@ -218,27 +221,30 @@ export default function HostPage() {
   const joinHost = (origin || "this site").replace(/^https?:\/\//, "");
   const joinUrl = origin ? `${origin}/play?pin=${pin}` : "";
 
-  // ===== C. Game started (question loop arrives next phase) =============
-  if (room.status !== "lobby") {
+  // ===== C. Live quiz — question + reveal loop ==========================
+  if (room.status === "question" || room.status === "reveal") {
+    return <HostQuiz pin={pin} room={room} />;
+  }
+
+  // ===== D. Round complete (leaderboard/podium arrive next phase) =======
+  if (room.status === "podium") {
     return (
       <main className="stage flex flex-1 flex-col items-center justify-center gap-6 px-6 text-center">
         <Wordmark tone="light" size="sm" />
         <h1 className="font-display text-5xl font-black sm:text-7xl">
-          The game is on! 🎬
+          That&apos;s a wrap! 🎉
         </h1>
         <p className="max-w-md text-lg text-white/70">
           {room.players.length} player{room.players.length === 1 ? "" : "s"} ·{" "}
-          {room.config.totalQuestions} questions ·{" "}
-          {room.config.secondsPerQuestion}s each. The question round lands in the
-          next phase.
+          {room.config.totalQuestions} questions played. Scoring, the
+          leaderboard, and the podium land in the next phase.
         </p>
         <Button
           onClick={handleNewRoom}
-          variant="ghost"
-          size="sm"
-          className="!text-white/60"
+          variant="gold"
+          size="lg"
         >
-          End &amp; start a new room
+          New game →
         </Button>
       </main>
     );
