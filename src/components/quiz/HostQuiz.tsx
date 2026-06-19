@@ -22,8 +22,14 @@ export function HostQuiz({ pin, room }: { pin: string; room: Room }) {
   const question = questionById(room.questionIds[questionIndex] ?? "");
 
   const [remaining, setRemaining] = useState(config.secondsPerQuestion);
-  const [answered, setAnswered] = useState(0);
+  // Tie the answered count to its question so a stale count from the previous
+  // question can't instantly auto-reveal the next one.
+  const [answered, setAnswered] = useState<{ qi: number; n: number }>({
+    qi: -1,
+    n: 0,
+  });
   const [advancing, setAdvancing] = useState(false);
+  const answeredNow = answered.qi === questionIndex ? answered.n : 0;
   // Reveal is two beats: the answer, then the standings.
   const [revealStep, setRevealStep] = useState<"answer" | "scores">("answer");
   const [results, setResults] = useState<Record<string, QuestionResult>>({});
@@ -42,10 +48,12 @@ export function HostQuiz({ pin, room }: { pin: string; room: Room }) {
     );
   }, [pin, status, questionIndex, question, config.secondsPerQuestion]);
 
-  // Live answer count (during the question).
+  // Live answer count (during the question), tagged with its question index.
   useEffect(() => {
     if (status !== "question") return;
-    return subscribeAnswerCount(pin, questionIndex, setAnswered);
+    return subscribeAnswerCount(pin, questionIndex, (n) =>
+      setAnswered({ qi: questionIndex, n }),
+    );
   }, [pin, status, questionIndex]);
 
   // This round's scored results (for the leaderboard deltas).
@@ -72,16 +80,12 @@ export function HostQuiz({ pin, room }: { pin: string; room: Room }) {
     return () => clearInterval(id);
   }, [status, questionIndex, config.secondsPerQuestion, reveal]);
 
-  // Everyone answered → reveal early.
+  // Everyone answered *this* question → reveal early.
   useEffect(() => {
-    if (
-      status === "question" &&
-      players.length > 0 &&
-      answered >= players.length
-    ) {
+    if (status === "question" && players.length > 0 && answeredNow >= players.length) {
       reveal();
     }
-  }, [status, answered, players.length, reveal]);
+  }, [status, answeredNow, players.length, reveal]);
 
   const deltas = useMemo(() => {
     const d: Record<string, number> = {};
@@ -151,7 +155,7 @@ export function HostQuiz({ pin, room }: { pin: string; room: Room }) {
           {question.tier} · {question.topic}
         </span>
         <span className="rounded-full bg-white/10 px-4 py-1.5 text-sm font-bold tabular-nums text-white/80">
-          {answered} / {players.length} answered
+          {answeredNow} / {players.length} answered
         </span>
       </div>
 
@@ -185,12 +189,23 @@ export function HostQuiz({ pin, room }: { pin: string; room: Room }) {
                   : "shadow-[0_8px_0_rgba(0,0,0,0.25)]",
               ].join(" ")}
             >
-              <Glyph kind={tile.kind} className="size-9 shrink-0 sm:size-12" />
-              <span className="font-display text-xl font-extrabold text-white sm:text-3xl">
+              <Glyph
+                kind={tile.kind}
+                fill={tile.ink}
+                className="size-9 shrink-0 sm:size-12"
+              />
+              <span
+                style={{ color: tile.ink }}
+                className="font-display text-xl font-extrabold sm:text-3xl"
+              >
                 {opt}
               </span>
               {correct && (
-                <span className="ml-auto text-2xl sm:text-4xl" aria-label="correct">
+                <span
+                  style={{ color: tile.ink }}
+                  className="ml-auto text-2xl font-black sm:text-4xl"
+                  aria-label="correct"
+                >
                   ✓
                 </span>
               )}

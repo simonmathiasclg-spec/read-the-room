@@ -29,6 +29,31 @@ function ordinal(n: number): string {
   return `${n}${s[(v - 20) % 10] ?? s[v] ?? s[0]}`;
 }
 
+/** High-contrast right/wrong badge: a white disc with a colored check/cross,
+ *  so it reads clearly on the green/red flash (never same-color-on-same-color). */
+function ResultBadge({ correct }: { correct: boolean }) {
+  return (
+    <span className="flex size-24 items-center justify-center rounded-full bg-white shadow-[0_8px_24px_rgba(0,0,0,0.25)] sm:size-28">
+      <svg
+        viewBox="0 0 24 24"
+        className="size-11 sm:size-14"
+        fill="none"
+        stroke={correct ? "var(--tile-c)" : "var(--psc-red)"}
+        strokeWidth="3.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden
+      >
+        {correct ? (
+          <path d="M5 13l4 4L19 7" />
+        ) : (
+          <path d="M6 6l12 12M18 6L6 18" />
+        )}
+      </svg>
+    </span>
+  );
+}
+
 /** Full-screen "look up at the big screen" state between actions. */
 function PlayerWait({
   emoji,
@@ -253,7 +278,7 @@ export default function PlayPage() {
               style={{ backgroundColor: tile.bg }}
               className="flex size-28 items-center justify-center rounded-3xl shadow-[0_8px_0_rgba(0,0,0,0.3)]"
             >
-              <Glyph kind={tile.kind} className="size-1/2" />
+              <Glyph kind={tile.kind} fill={tile.ink} className="size-1/2" />
             </div>
           )}
           <div>
@@ -291,10 +316,8 @@ export default function PlayPage() {
           }`}
           style={{ animation: "var(--animate-pop)" }}
         >
-          <span className="text-7xl" aria-hidden>
-            {result.correct ? "✅" : "❌"}
-          </span>
-          <h1 className="mt-3 font-display text-5xl font-black sm:text-6xl">
+          <ResultBadge correct={result.correct} />
+          <h1 className="mt-5 font-display text-5xl font-black sm:text-6xl">
             {result.correct ? "Correct!" : "Too bad"}
           </h1>
           {result.correct && (
