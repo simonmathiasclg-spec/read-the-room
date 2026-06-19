@@ -2,6 +2,8 @@
 
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
+import { Critter } from "@/components/character/Critter";
+import { characterFor } from "@/lib/character";
 import { rankPlayers, type Player } from "@/lib/room";
 
 const MEDAL = ["🥇", "🥈", "🥉"];
@@ -57,6 +59,7 @@ export function Leaderboard({
             <span className="w-9 shrink-0 text-center text-xl font-black tabular-nums sm:text-2xl">
               {i < 3 ? MEDAL[i] : i + 1}
             </span>
+            <Critter character={characterFor(p)} size={38} className="shrink-0" />
             <span className="flex-1 truncate font-display text-lg font-extrabold sm:text-xl">
               {p.name}
               {me ? " · you" : ""}

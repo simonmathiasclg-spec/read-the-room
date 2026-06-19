@@ -7,6 +7,7 @@ import {
   update,
 } from "firebase/database";
 import { getDb } from "./firebase";
+import type { Character } from "./character";
 
 export type RoomStatus = "lobby" | "question" | "reveal" | "podium";
 
@@ -31,6 +32,7 @@ export type Player = {
   joinedAt: number;
   score: number;
   streak: number;
+  character?: Character;
 };
 
 /** Per-player outcome of a single question (written by the host at reveal). */
@@ -53,6 +55,7 @@ type PlayerRecord = {
   joinedAt: number | object; // number once the server resolves serverTimestamp()
   score?: number;
   streak?: number;
+  character?: Character;
 };
 
 function randomPin(): string {
@@ -75,6 +78,7 @@ function parsePlayers(value: Record<string, PlayerRecord> | null): Player[] {
         joinedAt: typeof p.joinedAt === "number" ? p.joinedAt : 0,
         score: p.score ?? 0,
         streak: p.streak ?? 0,
+        character: p.character,
       }))
     : [];
   players.sort((a, b) => a.joinedAt - b.joinedAt);
@@ -116,12 +120,25 @@ export async function joinRoom(
   pin: string,
   playerId: string,
   name: string,
+  character?: Character,
 ): Promise<void> {
-  // update (not set) so a mid-game reconnect keeps the player's score/streak.
-  await update(ref(getDb(), `rooms/${pin}/players/${playerId}`), {
-    name,
-    joinedAt: serverTimestamp(),
-  });
+  // update (not set) so a mid-game reconnect keeps the player's score/streak
+  // (and existing character, when no new one is supplied).
+  const data: Record<string, unknown> = { name, joinedAt: serverTimestamp() };
+  if (character) data.character = character;
+  await update(ref(getDb(), `rooms/${pin}/players/${playerId}`), data);
+}
+
+/** Live cosmetic update of a player's chosen character. */
+export async function updateCharacter(
+  pin: string,
+  playerId: string,
+  character: Character,
+): Promise<void> {
+  await update(
+    ref(getDb(), `rooms/${pin}/players/${playerId}/character`),
+    character,
+  );
 }
 
 /**

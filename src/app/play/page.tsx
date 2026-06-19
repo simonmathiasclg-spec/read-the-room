@@ -4,9 +4,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import PlayerRoster from "@/components/PlayerRoster";
 import SetupNotice from "@/components/SetupNotice";
 import { Wordmark } from "@/components/brand/Wordmark";
+import { CharacterBuilder } from "@/components/character/CharacterBuilder";
 import { PhoneButtons } from "@/components/quiz/PhoneButtons";
 import { Glyph, TILES } from "@/components/quiz/tiles";
 import { Button, ButtonLink } from "@/components/ui/Button";
+import { makeDefaultCharacter, type Character } from "@/lib/character";
 import { isFirebaseConfigured } from "@/lib/firebase";
 import {
   joinRoom,
@@ -15,6 +17,7 @@ import {
   submitAnswer,
   subscribeResult,
   subscribeRoom,
+  updateCharacter,
   type QuestionResult,
   type Room,
 } from "@/lib/room";
@@ -108,9 +111,11 @@ export default function PlayPage() {
   const [answeredIndex, setAnsweredIndex] = useState<number | null>(null);
   const [answeredChoice, setAnsweredChoice] = useState<number | null>(null);
   const [result, setResult] = useState<QuestionResult | null>(null);
+  const [character, setCharacter] = useState<Character | null>(null);
   const nameRef = useRef<HTMLInputElement>(null);
   const unsubscribe = useRef<(() => void) | null>(null);
   const resultUnsub = useRef<(() => void) | null>(null);
+  const syncedChar = useRef(false);
 
   const currentQIndex = room?.questionIndex ?? -1;
 
@@ -122,6 +127,7 @@ export default function PlayPage() {
     if (!isFirebaseConfigured) return;
     const id = getPlayerId();
     setPlayerId(id);
+    setCharacter(makeDefaultCharacter(id));
 
     const linkedRaw = new URLSearchParams(window.location.search).get("pin");
     const linkedPin = linkedRaw ? linkedRaw.replace(/\D/g, "").slice(0, 4) : "";
@@ -181,10 +187,29 @@ export default function PlayPage() {
     };
   }, [joined, pin, playerId, currentQIndex]);
 
+  // On reconnect, adopt the character we already saved (once, before edits).
+  useEffect(() => {
+    if (syncedChar.current || !joined || !room) return;
+    const me = room.players.find((p) => p.id === playerId);
+    if (me?.character) {
+      syncedChar.current = true;
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time adopt of the stored character
+      setCharacter(me.character);
+    }
+  }, [joined, room, playerId]);
+
   // Scanned in via QR — the PIN is known, so put the cursor on the name field.
   useEffect(() => {
     if (fromLink && !joined) nameRef.current?.focus();
   }, [fromLink, joined]);
+
+  const handleCharacterChange = useCallback(
+    (next: Character) => {
+      setCharacter(next);
+      if (joined && pin && playerId) void updateCharacter(pin, playerId, next);
+    },
+    [joined, pin, playerId],
+  );
 
   const handleJoin = useCallback(
     async (e: React.FormEvent) => {
@@ -207,7 +232,12 @@ export default function PlayPage() {
           setError("No room with that PIN. Check the big screen.");
           return;
         }
-        await joinRoom(cleanPin, playerId, cleanName);
+        await joinRoom(
+          cleanPin,
+          playerId,
+          cleanName,
+          character ?? makeDefaultCharacter(playerId),
+        );
         localStorage.setItem(
           SESSION_KEY,
           JSON.stringify({ pin: cleanPin, name: cleanName }),
@@ -219,13 +249,14 @@ export default function PlayPage() {
         setJoining(false);
       }
     },
-    [pin, name, playerId],
+    [pin, name, playerId, character],
   );
 
   const handleLeave = useCallback(() => {
     localStorage.removeItem(SESSION_KEY);
     unsubscribe.current?.();
     unsubscribe.current = null;
+    syncedChar.current = false;
     setJoined(false);
     setRoom(null);
     setName("");
@@ -312,9 +343,18 @@ export default function PlayPage() {
       return (
         <main
           className={`flex flex-1 flex-col items-center justify-center px-6 text-center text-white ${
-            result.correct ? "bg-tile-c" : "bg-psc-red"
+            result.correct ? "bg-tile-c" : ""
           }`}
-          style={{ animation: "var(--animate-pop)" }}
+          style={{
+            animation: "var(--animate-pop)",
+            // Punchy, high-energy brand red (brighter in the centre) for "wrong".
+            ...(result.correct
+              ? {}
+              : {
+                  background:
+                    "radial-gradient(circle at 50% 38%, #FF2731 0%, #ED1C24 70%)",
+                }),
+          }}
         >
           <ResultBadge correct={result.correct} />
           <h1 className="mt-5 font-display text-5xl font-black sm:text-6xl">
@@ -387,11 +427,20 @@ export default function PlayPage() {
             <span className="font-mono font-bold text-psc-red">{pin}</span>
           </p>
 
-          <div className="mt-7 w-full rounded-2xl bg-psc-black px-6 py-5 text-xl font-extrabold text-white">
+          {character && (
+            <div className="mt-7 w-full rounded-3xl border border-black/5 bg-white p-5 text-left shadow-[0_2px_24px_rgba(17,17,17,0.07)]">
+              <CharacterBuilder
+                character={character}
+                onChange={handleCharacterChange}
+              />
+            </div>
+          )}
+
+          <div className="mt-5 w-full rounded-2xl bg-psc-black px-6 py-4 text-lg font-extrabold text-white">
             👀 Look up at the big screen
           </div>
 
-          <div className="mt-7 w-full rounded-3xl border border-black/5 bg-white p-5 text-left shadow-[0_2px_24px_rgba(17,17,17,0.07)]">
+          <div className="mt-5 w-full rounded-3xl border border-black/5 bg-white p-5 text-left shadow-[0_2px_24px_rgba(17,17,17,0.07)]">
             <PlayerRoster
               players={room?.players ?? []}
               highlightId={playerId}

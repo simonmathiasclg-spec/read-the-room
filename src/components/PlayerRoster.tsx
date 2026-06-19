@@ -1,3 +1,5 @@
+import { Critter } from "@/components/character/Critter";
+import { characterFor } from "@/lib/character";
 import type { Player } from "@/lib/room";
 
 type Tone = "light" | "stage";
@@ -53,10 +55,13 @@ export default function PlayerRoster({
               <li
                 key={p.id}
                 style={{ animation: "var(--animate-pop)" }}
-                className={`max-w-[14rem] truncate rounded-full px-4 py-2.5 text-base font-bold sm:text-lg ${chip}`}
+                className={`flex max-w-[14rem] items-center gap-2 rounded-full py-1.5 pl-1.5 pr-4 text-base font-bold sm:text-lg ${chip}`}
               >
-                {p.name}
-                {isMe ? " · you" : ""}
+                <Critter character={characterFor(p)} size={30} />
+                <span className="truncate">
+                  {p.name}
+                  {isMe ? " · you" : ""}
+                </span>
               </li>
             );
           })}

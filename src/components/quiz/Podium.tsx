@@ -1,6 +1,8 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { Critter } from "@/components/character/Critter";
+import { characterFor } from "@/lib/character";
 import { rankPlayers, type Player } from "@/lib/room";
 
 const STEP = [
@@ -44,11 +46,16 @@ function Step({
           👑
         </motion.span>
       )}
-      <span className="text-2xl sm:text-4xl" aria-hidden>
+      <Critter
+        character={characterFor(player)}
+        size={56}
+        className="size-12 sm:size-20"
+      />
+      <span className="-mt-1 text-xl sm:text-3xl" aria-hidden>
         {medal}
       </span>
       <span
-        className={`mt-1 max-w-full truncate font-display text-base font-extrabold sm:text-2xl ${
+        className={`mt-0.5 max-w-full truncate font-display text-base font-extrabold sm:text-2xl ${
           highlight ? "text-psc-red" : "text-white"
         }`}
       >
