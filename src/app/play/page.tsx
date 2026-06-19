@@ -34,6 +34,8 @@ export default function PlayPage() {
   const [joining, setJoining] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [playerId, setPlayerId] = useState("");
+  const [fromLink, setFromLink] = useState(false); // arrived via QR deep-link
+  const nameRef = useRef<HTMLInputElement>(null);
   const unsubscribe = useRef<(() => void) | null>(null);
 
   // Bootstrap: identity, deep-linked ?pin=, and auto-reconnect to a live room.
@@ -45,13 +47,19 @@ export default function PlayPage() {
     const id = getPlayerId();
     setPlayerId(id);
 
-    const linkedPin = new URLSearchParams(window.location.search).get("pin");
-    if (linkedPin) setPin(linkedPin.replace(/\D/g, "").slice(0, 4));
+    const linkedRaw = new URLSearchParams(window.location.search).get("pin");
+    const linkedPin = linkedRaw ? linkedRaw.replace(/\D/g, "").slice(0, 4) : "";
+    const hasValidLink = /^\d{4}$/.test(linkedPin);
+    if (linkedPin) setPin(linkedPin);
+    if (hasValidLink) setFromLink(true); // QR scan → just enter a name
 
     const raw = localStorage.getItem(SESSION_KEY);
     if (!raw) return;
     try {
       const session = JSON.parse(raw) as { pin: string; name: string };
+      // An explicit QR/deep-link to a *different* room beats a stale session —
+      // don't drag a returning player back into their old room.
+      if (hasValidLink && session.pin !== linkedPin) return;
       roomExists(session.pin).then((exists) => {
         if (!exists) {
           localStorage.removeItem(SESSION_KEY);
@@ -79,6 +87,11 @@ export default function PlayPage() {
       unsubscribe.current = null;
     };
   }, [joined, pin]);
+
+  // Scanned in via QR — the PIN is known, so put the cursor on the name field.
+  useEffect(() => {
+    if (fromLink && !joined) nameRef.current?.focus();
+  }, [fromLink, joined]);
 
   const handleJoin = useCallback(
     async (e: React.FormEvent) => {
@@ -177,36 +190,63 @@ export default function PlayPage() {
       <div className="mx-auto w-full max-w-md">
         <Wordmark className="mb-8" />
         <h1 className="font-display text-5xl font-black leading-[0.95]">
-          Join the
-          <br />
-          <span className="text-psc-red">game</span>
+          {fromLink ? (
+            <>
+              Add your
+              <br />
+              <span className="text-psc-red">name</span>
+            </>
+          ) : (
+            <>
+              Join the
+              <br />
+              <span className="text-psc-red">game</span>
+            </>
+          )}
         </h1>
 
         <form onSubmit={handleJoin} className="mt-8 flex flex-col gap-5">
-          <label className="flex flex-col gap-2">
-            <span className="text-xs font-bold uppercase tracking-[0.18em] text-psc-gray-2">
-              Game PIN
-            </span>
-            <input
-              inputMode="numeric"
-              autoComplete="off"
-              pattern="\d{4}"
-              maxLength={4}
-              value={pin}
-              onChange={(e) =>
-                setPin(e.target.value.replace(/\D/g, "").slice(0, 4))
-              }
-              placeholder="1234"
-              aria-label="Game PIN"
-              className="rounded-2xl border-2 border-psc-gray-1 bg-white px-4 py-5 text-center font-mono text-4xl font-black tracking-[0.4em] tabular-nums outline-none transition-colors placeholder:text-psc-gray-1/50 focus:border-psc-red focus:ring-4 focus:ring-psc-red/15"
-            />
-          </label>
+          {fromLink ? (
+            // Came in via QR — PIN is already known, confirm it instead of asking.
+            <div className="flex items-center justify-between gap-3 rounded-2xl bg-psc-black px-5 py-4 text-white">
+              <span className="font-display text-lg font-extrabold">
+                Room <span className="font-mono text-psc-gold">{pin}</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => setFromLink(false)}
+                className="text-sm font-semibold text-white/60 underline underline-offset-2 hover:text-white"
+              >
+                Use a different PIN
+              </button>
+            </div>
+          ) : (
+            <label className="flex flex-col gap-2">
+              <span className="text-xs font-bold uppercase tracking-[0.18em] text-psc-gray-2">
+                Game PIN
+              </span>
+              <input
+                inputMode="numeric"
+                autoComplete="off"
+                pattern="\d{4}"
+                maxLength={4}
+                value={pin}
+                onChange={(e) =>
+                  setPin(e.target.value.replace(/\D/g, "").slice(0, 4))
+                }
+                placeholder="1234"
+                aria-label="Game PIN"
+                className="rounded-2xl border-2 border-psc-gray-1 bg-white px-4 py-5 text-center font-mono text-4xl font-black tracking-[0.4em] tabular-nums outline-none transition-colors placeholder:text-psc-gray-1/50 focus:border-psc-red focus:ring-4 focus:ring-psc-red/15"
+              />
+            </label>
+          )}
 
           <label className="flex flex-col gap-2">
             <span className="text-xs font-bold uppercase tracking-[0.18em] text-psc-gray-2">
               Your name
             </span>
             <input
+              ref={nameRef}
               autoComplete="off"
               maxLength={20}
               value={name}

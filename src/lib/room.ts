@@ -4,15 +4,38 @@ import {
   ref,
   serverTimestamp,
   set,
+  update,
 } from "firebase/database";
 import { getDb } from "./firebase";
 
 export type RoomStatus = "lobby" | "question" | "reveal" | "podium";
 
+/** Only "quiz" is playable today; the others are teased as coming soon. */
+export type GameMode = "quiz" | "spot-the-drive" | "defuse-the-pattern";
+
+export type RoomConfig = {
+  mode: GameMode;
+  totalQuestions: number;
+  secondsPerQuestion: number;
+};
+
+export const DEFAULT_CONFIG: RoomConfig = {
+  mode: "quiz",
+  totalQuestions: 10,
+  secondsPerQuestion: 20,
+};
+
 export type Player = {
   id: string;
   name: string;
   joinedAt: number;
+};
+
+export type Room = {
+  status: RoomStatus;
+  questionIndex: number;
+  config: RoomConfig;
+  players: Player[];
 };
 
 /** Stored under rooms/{pin}/players/{playerId}. */
@@ -26,11 +49,23 @@ function randomPin(): string {
   return String(Math.floor(1000 + Math.random() * 9000));
 }
 
+function parsePlayers(value: Record<string, PlayerRecord> | null): Player[] {
+  const players: Player[] = value
+    ? Object.entries(value).map(([id, p]) => ({
+        id,
+        name: p.name,
+        joinedAt: typeof p.joinedAt === "number" ? p.joinedAt : 0,
+      }))
+    : [];
+  players.sort((a, b) => a.joinedAt - b.joinedAt);
+  return players;
+}
+
 /**
- * Create a fresh room with a unique 4-digit PIN. Retries on the (rare)
- * collision with an existing room before giving up.
+ * Create a fresh room with a unique 4-digit PIN and the host's chosen config.
+ * Retries on the (rare) collision with an existing room before giving up.
  */
-export async function createRoom(): Promise<string> {
+export async function createRoom(config: RoomConfig): Promise<string> {
   const db = getDb();
   for (let attempt = 0; attempt < 12; attempt++) {
     const pin = randomPin();
@@ -39,6 +74,7 @@ export async function createRoom(): Promise<string> {
       await set(ref(db, `rooms/${pin}`), {
         status: "lobby" satisfies RoomStatus,
         questionIndex: 0,
+        config,
         createdAt: serverTimestamp(),
       });
       return pin;
@@ -67,6 +103,15 @@ export async function joinRoom(
   } satisfies PlayerRecord);
 }
 
+/** Host begins the game — flips the room out of the lobby. */
+export async function startGame(pin: string): Promise<void> {
+  await update(ref(getDb(), `rooms/${pin}`), {
+    status: "question" satisfies RoomStatus,
+    questionIndex: 0,
+    questionStartedAt: serverTimestamp(),
+  });
+}
+
 /**
  * Subscribe to the live roster for a room. Returns an unsubscribe function.
  * Players are sorted by join order so the list is stable as it grows.
@@ -77,15 +122,35 @@ export function subscribePlayers(
 ): () => void {
   const playersRef = ref(getDb(), `rooms/${pin}/players`);
   return onValue(playersRef, (snap) => {
-    const value = snap.val() as Record<string, PlayerRecord> | null;
-    const players: Player[] = value
-      ? Object.entries(value).map(([id, p]) => ({
-          id,
-          name: p.name,
-          joinedAt: typeof p.joinedAt === "number" ? p.joinedAt : 0,
-        }))
-      : [];
-    players.sort((a, b) => a.joinedAt - b.joinedAt);
-    onChange(players);
+    onChange(parsePlayers(snap.val() as Record<string, PlayerRecord> | null));
+  });
+}
+
+/**
+ * Subscribe to the whole room (status, config, roster). Used by the host so a
+ * refresh resumes the right screen. Returns null while the room is missing.
+ */
+export function subscribeRoom(
+  pin: string,
+  onChange: (room: Room | null) => void,
+): () => void {
+  const roomRef = ref(getDb(), `rooms/${pin}`);
+  return onValue(roomRef, (snap) => {
+    if (!snap.exists()) {
+      onChange(null);
+      return;
+    }
+    const v = snap.val() as {
+      status?: RoomStatus;
+      questionIndex?: number;
+      config?: Partial<RoomConfig>;
+      players?: Record<string, PlayerRecord> | null;
+    };
+    onChange({
+      status: v.status ?? "lobby",
+      questionIndex: v.questionIndex ?? 0,
+      config: { ...DEFAULT_CONFIG, ...v.config },
+      players: parsePlayers(v.players ?? null),
+    });
   });
 }
