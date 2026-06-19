@@ -10,14 +10,24 @@ import { Button, ButtonLink } from "@/components/ui/Button";
 import { isFirebaseConfigured } from "@/lib/firebase";
 import {
   joinRoom,
+  rankPlayers,
   roomExists,
   submitAnswer,
+  subscribeResult,
   subscribeRoom,
+  type QuestionResult,
   type Room,
 } from "@/lib/room";
 
 const PLAYER_ID_KEY = "rtr:playerId";
 const SESSION_KEY = "rtr:session";
+
+/** 1 → "1st", 2 → "2nd", … */
+function ordinal(n: number): string {
+  const s = ["th", "st", "nd", "rd"];
+  const v = n % 100;
+  return `${n}${s[(v - 20) % 10] ?? s[v] ?? s[0]}`;
+}
 
 /** Full-screen "look up at the big screen" state between actions. */
 function PlayerWait({
@@ -72,8 +82,12 @@ export default function PlayPage() {
   const [fromLink, setFromLink] = useState(false); // arrived via QR deep-link
   const [answeredIndex, setAnsweredIndex] = useState<number | null>(null);
   const [answeredChoice, setAnsweredChoice] = useState<number | null>(null);
+  const [result, setResult] = useState<QuestionResult | null>(null);
   const nameRef = useRef<HTMLInputElement>(null);
   const unsubscribe = useRef<(() => void) | null>(null);
+  const resultUnsub = useRef<(() => void) | null>(null);
+
+  const currentQIndex = room?.questionIndex ?? -1;
 
   // Bootstrap: identity, deep-linked ?pin=, and auto-reconnect to a live room.
   // These are one-time syncs from browser-only sources (localStorage, the URL),
@@ -124,6 +138,23 @@ export default function PlayPage() {
       unsubscribe.current = null;
     };
   }, [joined, pin]);
+
+  // Watch our scored result for the current question (so we can flash + rank).
+  useEffect(() => {
+    resultUnsub.current?.();
+    resultUnsub.current = null;
+    if (!joined || !pin || !playerId || currentQIndex < 0) return;
+    resultUnsub.current = subscribeResult(
+      pin,
+      currentQIndex,
+      playerId,
+      setResult,
+    );
+    return () => {
+      resultUnsub.current?.();
+      resultUnsub.current = null;
+    };
+  }, [joined, pin, playerId, currentQIndex]);
 
   // Scanned in via QR — the PIN is known, so put the cursor on the name field.
   useEffect(() => {
@@ -238,23 +269,80 @@ export default function PlayPage() {
     }
 
     if (status === "reveal") {
+      // Until the host writes our score, hold on a calm "look up" state.
+      if (!result) {
+        return (
+          <PlayerWait
+            dark
+            emoji="👀"
+            title={hasAnswered ? "Answer locked" : "Time's up!"}
+            subtitle="Scoring… check the big screen."
+          />
+        );
+      }
+      const ranked = rankPlayers(room?.players ?? []);
+      const myRank = ranked.findIndex((p) => p.id === playerId) + 1;
+      const me = ranked.find((p) => p.id === playerId);
+      const streak = me?.streak ?? 0;
       return (
-        <PlayerWait
-          dark
-          emoji="👀"
-          title={hasAnswered ? "Answer locked" : "Time's up!"}
-          subtitle="Check the big screen for the answer."
-        />
+        <main
+          className={`flex flex-1 flex-col items-center justify-center px-6 text-center text-white ${
+            result.correct ? "bg-tile-c" : "bg-psc-red"
+          }`}
+          style={{ animation: "var(--animate-pop)" }}
+        >
+          <span className="text-7xl" aria-hidden>
+            {result.correct ? "✅" : "❌"}
+          </span>
+          <h1 className="mt-3 font-display text-5xl font-black sm:text-6xl">
+            {result.correct ? "Correct!" : "Too bad"}
+          </h1>
+          {result.correct && (
+            <p className="mt-1 font-display text-3xl font-black">
+              +{result.points.toLocaleString()}
+            </p>
+          )}
+          <div className="mt-7 rounded-2xl bg-black/20 px-6 py-4 text-lg font-extrabold">
+            You&apos;re {myRank > 0 ? ordinal(myRank) : "—"}
+            {ranked.length ? ` of ${ranked.length}` : ""}
+            {result.correct && streak > 1 ? ` · 🔥 ${streak} in a row` : ""}
+          </div>
+        </main>
       );
     }
 
     if (status === "podium") {
+      const ranked = rankPlayers(room?.players ?? []);
+      const myRank = ranked.findIndex((p) => p.id === playerId) + 1;
+      const me = ranked.find((p) => p.id === playerId);
+      const winner = ranked[0];
+      const iWon = !!winner && winner.id === playerId;
       return (
-        <PlayerWait
-          emoji="🎉"
-          title="Thanks for playing!"
-          subtitle="That's a wrap — look up for the results."
-        />
+        <main
+          className="wash flex flex-1 flex-col items-center justify-center px-6 text-center"
+          style={{ animation: "var(--animate-rise)" }}
+        >
+          <span className="text-7xl" aria-hidden>
+            {iWon ? "🏆" : "🎉"}
+          </span>
+          <h1 className="mt-3 font-display text-5xl font-black">
+            {iWon ? "You won!" : `You finished ${myRank > 0 ? ordinal(myRank) : "—"}`}
+          </h1>
+          <p className="mt-2 text-xl font-bold text-psc-black">
+            {(me?.score ?? 0).toLocaleString()} points
+          </p>
+          {!iWon && winner && (
+            <p className="mt-1 text-psc-gray-2">🥇 {winner.name} took the crown</p>
+          )}
+          <Button
+            onClick={handleLeave}
+            variant="ghost"
+            size="sm"
+            className="mt-8"
+          >
+            Leave
+          </Button>
+        </main>
       );
     }
 

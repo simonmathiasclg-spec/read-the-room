@@ -1,16 +1,19 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { questionById } from "@/lib/questions";
 import {
   endGame,
   nextQuestion,
-  revealQuestion,
+  scoreAndReveal,
   subscribeAnswerCount,
+  subscribeResults,
+  type QuestionResult,
   type Room,
 } from "@/lib/room";
 import { Countdown } from "./Countdown";
+import { Leaderboard } from "./Leaderboard";
 import { Glyph, TILES } from "./tiles";
 
 export function HostQuiz({ pin, room }: { pin: string; room: Room }) {
@@ -21,20 +24,34 @@ export function HostQuiz({ pin, room }: { pin: string; room: Room }) {
   const [remaining, setRemaining] = useState(config.secondsPerQuestion);
   const [answered, setAnswered] = useState(0);
   const [advancing, setAdvancing] = useState(false);
-  // Guard so a question is only revealed once (timer + "all answered" can race).
+  // Reveal is two beats: the answer, then the standings.
+  const [revealStep, setRevealStep] = useState<"answer" | "scores">("answer");
+  const [results, setResults] = useState<Record<string, QuestionResult>>({});
+  // Guard so a question is only revealed/scored once (timer + all-answered race).
   const revealedFor = useRef<number | null>(null);
 
   const reveal = useCallback(() => {
-    if (status !== "question") return;
+    if (status !== "question" || !question) return;
     if (revealedFor.current === questionIndex) return;
     revealedFor.current = questionIndex;
-    void revealQuestion(pin);
-  }, [pin, status, questionIndex]);
+    void scoreAndReveal(
+      pin,
+      questionIndex,
+      question.answer,
+      config.secondsPerQuestion,
+    );
+  }, [pin, status, questionIndex, question, config.secondsPerQuestion]);
 
-  // Live count of answers for this question.
+  // Live answer count (during the question).
   useEffect(() => {
     if (status !== "question") return;
     return subscribeAnswerCount(pin, questionIndex, setAnswered);
+  }, [pin, status, questionIndex]);
+
+  // This round's scored results (for the leaderboard deltas).
+  useEffect(() => {
+    if (status !== "reveal") return;
+    return subscribeResults(pin, questionIndex, setResults);
   }, [pin, status, questionIndex]);
 
   // Per-question countdown. Host-authoritative, driven by local time.
@@ -57,10 +74,20 @@ export function HostQuiz({ pin, room }: { pin: string; room: Room }) {
 
   // Everyone answered → reveal early.
   useEffect(() => {
-    if (status === "question" && players.length > 0 && answered >= players.length) {
+    if (
+      status === "question" &&
+      players.length > 0 &&
+      answered >= players.length
+    ) {
       reveal();
     }
   }, [status, answered, players.length, reveal]);
+
+  const deltas = useMemo(() => {
+    const d: Record<string, number> = {};
+    for (const [id, r] of Object.entries(results)) d[id] = r.points;
+    return d;
+  }, [results]);
 
   const isReveal = status === "reveal";
   const isLast = questionIndex >= total - 1;
@@ -70,6 +97,7 @@ export function HostQuiz({ pin, room }: { pin: string; room: Room }) {
     try {
       if (isLast) await endGame(pin);
       else await nextQuestion(pin, questionIndex + 1);
+      setRevealStep("answer");
     } finally {
       setAdvancing(false);
     }
@@ -83,9 +111,38 @@ export function HostQuiz({ pin, room }: { pin: string; room: Room }) {
     );
   }
 
+  // ----- Standings beat -------------------------------------------------
+  if (isReveal && revealStep === "scores") {
+    return (
+      <main className="stage flex flex-1 flex-col px-6 py-8 sm:px-10">
+        <div className="flex items-center justify-between gap-4">
+          <span className="rounded-full bg-white/10 px-4 py-1.5 text-sm font-bold uppercase tracking-wide text-white/80">
+            Question {questionIndex + 1} / {total}
+          </span>
+          <span className="text-sm font-semibold uppercase tracking-[0.18em] text-psc-gold">
+            Standings
+          </span>
+        </div>
+
+        <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col justify-center py-6">
+          <h1 className="mb-6 text-center font-display text-4xl font-black sm:text-5xl">
+            Leaderboard
+          </h1>
+          <Leaderboard players={players} deltas={deltas} reshuffle max={5} />
+        </div>
+
+        <div className="flex justify-center">
+          <Button onClick={handleNext} loading={advancing} variant="gold" size="lg">
+            {isLast ? "Finish round →" : "Next question →"}
+          </Button>
+        </div>
+      </main>
+    );
+  }
+
+  // ----- Question / answer-reveal beat ----------------------------------
   return (
     <main className="stage flex flex-1 flex-col px-6 py-6 sm:px-10">
-      {/* Header: counter · timer · answered count */}
       <div className="flex items-center justify-between gap-4">
         <span className="rounded-full bg-white/10 px-4 py-1.5 text-sm font-bold uppercase tracking-wide text-white/80">
           Question {questionIndex + 1} / {total}
@@ -98,7 +155,6 @@ export function HostQuiz({ pin, room }: { pin: string; room: Room }) {
         </span>
       </div>
 
-      {/* Question + timer */}
       <div className="flex flex-col items-center gap-6 py-6 text-center">
         {status === "question" ? (
           <Countdown remaining={remaining} total={config.secondsPerQuestion} />
@@ -112,7 +168,6 @@ export function HostQuiz({ pin, room }: { pin: string; room: Room }) {
         </h1>
       </div>
 
-      {/* 2×2 answer tiles */}
       <div className="mx-auto grid w-full max-w-5xl flex-1 grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
         {question.options.map((opt, i) => {
           const tile = TILES[i];
@@ -144,14 +199,17 @@ export function HostQuiz({ pin, room }: { pin: string; room: Room }) {
         })}
       </div>
 
-      {/* Reveal: teach moment + advance */}
       {isReveal && (
         <div className="mx-auto mt-6 flex w-full max-w-3xl flex-col items-center gap-4 text-center">
           <p className="text-lg font-medium text-white/85 sm:text-xl">
             💡 {question.teach}
           </p>
-          <Button onClick={handleNext} loading={advancing} variant="gold" size="lg">
-            {isLast ? "Finish round →" : "Next question →"}
+          <Button
+            onClick={() => setRevealStep("scores")}
+            variant="gold"
+            size="lg"
+          >
+            Show standings →
           </Button>
         </div>
       )}

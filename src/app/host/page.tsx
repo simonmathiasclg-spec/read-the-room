@@ -6,6 +6,7 @@ import PlayerRoster from "@/components/PlayerRoster";
 import SetupNotice from "@/components/SetupNotice";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { HostQuiz } from "@/components/quiz/HostQuiz";
+import { Podium } from "@/components/quiz/Podium";
 import { Button } from "@/components/ui/Button";
 import { Segmented } from "@/components/ui/Segmented";
 import { isFirebaseConfigured } from "@/lib/firebase";
@@ -231,24 +232,12 @@ export default function HostPage() {
     return <HostQuiz pin={pin} room={room} />;
   }
 
-  // ===== D. Round complete (leaderboard/podium arrive next phase) =======
+  // ===== D. Podium — the winner moment ==================================
   if (room.status === "podium") {
     return (
-      <main className="stage flex flex-1 flex-col items-center justify-center gap-6 px-6 text-center">
-        <Wordmark tone="light" size="sm" />
-        <h1 className="font-display text-5xl font-black sm:text-7xl">
-          That&apos;s a wrap! 🎉
-        </h1>
-        <p className="max-w-md text-lg text-white/70">
-          {room.players.length} player{room.players.length === 1 ? "" : "s"} ·{" "}
-          {room.config.totalQuestions} questions played. Scoring, the
-          leaderboard, and the podium land in the next phase.
-        </p>
-        <Button
-          onClick={handleNewRoom}
-          variant="gold"
-          size="lg"
-        >
+      <main className="stage flex flex-1 flex-col items-center justify-center gap-10 px-6 py-12">
+        <Podium players={room.players} />
+        <Button onClick={handleNewRoom} variant="gold" size="lg">
           New game →
         </Button>
       </main>

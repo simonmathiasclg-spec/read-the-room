@@ -29,6 +29,14 @@ export type Player = {
   id: string;
   name: string;
   joinedAt: number;
+  score: number;
+  streak: number;
+};
+
+/** Per-player outcome of a single question (written by the host at reveal). */
+export type QuestionResult = {
+  correct: boolean;
+  points: number;
 };
 
 export type Room = {
@@ -43,11 +51,20 @@ export type Room = {
 type PlayerRecord = {
   name: string;
   joinedAt: number | object; // number once the server resolves serverTimestamp()
+  score?: number;
+  streak?: number;
 };
 
 function randomPin(): string {
   // 4 digits, 1000–9999, so it never renders with a dropped leading zero.
   return String(Math.floor(1000 + Math.random() * 9000));
+}
+
+/** Sorted by score (desc) then join order, so the leaderboard is stable. */
+export function rankPlayers(players: Player[]): Player[] {
+  return [...players].sort(
+    (a, b) => b.score - a.score || a.joinedAt - b.joinedAt,
+  );
 }
 
 function parsePlayers(value: Record<string, PlayerRecord> | null): Player[] {
@@ -56,6 +73,8 @@ function parsePlayers(value: Record<string, PlayerRecord> | null): Player[] {
         id,
         name: p.name,
         joinedAt: typeof p.joinedAt === "number" ? p.joinedAt : 0,
+        score: p.score ?? 0,
+        streak: p.streak ?? 0,
       }))
     : [];
   players.sort((a, b) => a.joinedAt - b.joinedAt);
@@ -98,10 +117,11 @@ export async function joinRoom(
   playerId: string,
   name: string,
 ): Promise<void> {
-  await set(ref(getDb(), `rooms/${pin}/players/${playerId}`), {
+  // update (not set) so a mid-game reconnect keeps the player's score/streak.
+  await update(ref(getDb(), `rooms/${pin}/players/${playerId}`), {
     name,
     joinedAt: serverTimestamp(),
-  } satisfies PlayerRecord);
+  });
 }
 
 /**
@@ -133,11 +153,72 @@ export async function submitAnswer(
   });
 }
 
-/** Host (or the timer) reveals the correct answer for the current question. */
-export async function revealQuestion(pin: string): Promise<void> {
-  await update(ref(getDb(), `rooms/${pin}`), {
+type AnswerRecord = { choice: number; answeredAt: number };
+
+/**
+ * Compute the points for a single answer (host-authoritative scoring).
+ * Correct = 500 + 500 × (timeLeft / total), rounded, plus a +100-per-extra
+ * streak bonus. Wrong / no answer = 0.
+ */
+export function scoreAnswer(
+  correct: boolean,
+  newStreak: number,
+  secondsPerQuestion: number,
+  timeLeftSeconds: number,
+): number {
+  if (!correct) return 0;
+  const frac = secondsPerQuestion > 0 ? timeLeftSeconds / secondsPerQuestion : 0;
+  const base = Math.round(500 + 500 * Math.max(0, Math.min(1, frac)));
+  const streakBonus = Math.max(0, newStreak - 1) * 100;
+  return base + streakBonus;
+}
+
+/**
+ * Host reveals the current question AND scores it in one atomic write:
+ * updates each player's cumulative score + streak, records per-player results,
+ * and flips the room to "reveal".
+ */
+export async function scoreAndReveal(
+  pin: string,
+  questionIndex: number,
+  correctIndex: number,
+  secondsPerQuestion: number,
+): Promise<void> {
+  const db = getDb();
+  const snap = await get(ref(db, `rooms/${pin}`));
+  const room = snap.val() as {
+    questionStartedAt?: number;
+    players?: Record<string, PlayerRecord>;
+    answers?: Record<string, Record<string, AnswerRecord>>;
+  } | null;
+  if (!room) return;
+
+  const startedAt = room.questionStartedAt ?? 0;
+  const answers = room.answers?.[questionIndex] ?? {};
+  const players = room.players ?? {};
+
+  const updates: Record<string, unknown> = {
     status: "reveal" satisfies RoomStatus,
-  });
+  };
+
+  for (const [pid, p] of Object.entries(players)) {
+    const ans = answers[pid];
+    const correct = !!ans && ans.choice === correctIndex;
+
+    let timeLeft = 0;
+    if (correct && typeof ans.answeredAt === "number" && startedAt) {
+      const elapsed = (ans.answeredAt - startedAt) / 1000;
+      timeLeft = Math.max(0, secondsPerQuestion - elapsed);
+    }
+    const newStreak = correct ? (p.streak ?? 0) + 1 : 0;
+    const points = scoreAnswer(correct, newStreak, secondsPerQuestion, timeLeft);
+
+    updates[`players/${pid}/score`] = (p.score ?? 0) + points;
+    updates[`players/${pid}/streak`] = newStreak;
+    updates[`results/${questionIndex}/${pid}`] = { correct, points };
+  }
+
+  await update(ref(db, `rooms/${pin}`), updates);
 }
 
 /** Host advances to the next question. */
@@ -156,6 +237,36 @@ export async function nextQuestion(
 export async function endGame(pin: string): Promise<void> {
   await update(ref(getDb(), `rooms/${pin}`), {
     status: "podium" satisfies RoomStatus,
+  });
+}
+
+/** A player watches for their own scored result on the current question. */
+export function subscribeResult(
+  pin: string,
+  questionIndex: number,
+  playerId: string,
+  onChange: (result: QuestionResult | null) => void,
+): () => void {
+  const resultRef = ref(
+    getDb(),
+    `rooms/${pin}/results/${questionIndex}/${playerId}`,
+  );
+  return onValue(resultRef, (snap) => {
+    onChange(snap.exists() ? (snap.val() as QuestionResult) : null);
+  });
+}
+
+/** Host watches all scored results for a question (to show per-round deltas). */
+export function subscribeResults(
+  pin: string,
+  questionIndex: number,
+  onChange: (results: Record<string, QuestionResult>) => void,
+): () => void {
+  const resultsRef = ref(getDb(), `rooms/${pin}/results/${questionIndex}`);
+  return onValue(resultsRef, (snap) => {
+    onChange(
+      snap.exists() ? (snap.val() as Record<string, QuestionResult>) : {},
+    );
   });
 }
 
