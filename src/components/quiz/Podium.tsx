@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { Critter } from "@/components/character/Critter";
 import { characterFor } from "@/lib/character";
 import { rankPlayers, type Player } from "@/lib/room";
+import { Confetti } from "./Confetti";
 
 const STEP = [
   { place: 1, medal: "🥇", height: "h-44 sm:h-56", bg: "bg-psc-gold", delay: 0.5 },
@@ -46,11 +47,23 @@ function Step({
           👑
         </motion.span>
       )}
-      <Critter
-        character={characterFor(player)}
-        size={56}
-        className="size-12 sm:size-20"
-      />
+      <motion.div
+        initial={{ scale: 0.3, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{
+          delay: delay + 0.18,
+          type: "spring",
+          stiffness: place === 1 ? 360 : 300,
+          damping: place === 1 ? 11 : 16,
+        }}
+      >
+        <Critter
+          character={characterFor(player)}
+          size={56}
+          anim={place === 1 ? "wiggle" : "idle"}
+          className="size-12 sm:size-20"
+        />
+      </motion.div>
       <span className="-mt-1 text-xl sm:text-3xl" aria-hidden>
         {medal}
       </span>
@@ -87,7 +100,8 @@ export function Podium({
   const byPlace = new Map(ranked.slice(0, 3).map((p, i) => [i + 1, p]));
 
   return (
-    <div className="flex w-full flex-col items-center">
+    <div className="relative flex w-full flex-col items-center">
+      <Confetti />
       {winner && (
         <motion.div
           initial={{ opacity: 0, y: -16 }}

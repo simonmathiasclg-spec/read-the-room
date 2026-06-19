@@ -1,5 +1,6 @@
 "use client";
 
+import { motion } from "framer-motion";
 import { useCallback, useEffect, useRef, useState } from "react";
 import PlayerRoster from "@/components/PlayerRoster";
 import SetupNotice from "@/components/SetupNotice";
@@ -36,23 +37,44 @@ function ordinal(n: number): string {
  *  so it reads clearly on the green/red flash (never same-color-on-same-color). */
 function ResultBadge({ correct }: { correct: boolean }) {
   return (
-    <span className="flex size-24 items-center justify-center rounded-full bg-white shadow-[0_8px_24px_rgba(0,0,0,0.25)] sm:size-28">
-      <svg
-        viewBox="0 0 24 24"
-        className="size-11 sm:size-14"
-        fill="none"
-        stroke={correct ? "var(--tile-c)" : "var(--psc-red)"}
-        strokeWidth="3.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden
+    <span className="relative inline-flex">
+      {/* Celebratory pulse ring on a correct answer. */}
+      {correct && (
+        <motion.span
+          aria-hidden
+          className="pointer-events-none absolute inset-0 rounded-full border-[3px] border-white/70"
+          initial={{ scale: 0.7, opacity: 0.7 }}
+          animate={{ scale: 1.65, opacity: 0 }}
+          transition={{ duration: 0.8, ease: "easeOut", delay: 0.05 }}
+        />
+      )}
+      <motion.span
+        initial={{ scale: 0, rotate: correct ? -25 : 0 }}
+        animate={{ scale: 1, rotate: 0 }}
+        transition={{
+          type: "spring",
+          stiffness: correct ? 380 : 300,
+          damping: correct ? 11 : 18,
+        }}
+        className="flex size-24 items-center justify-center rounded-full bg-white shadow-[0_8px_24px_rgba(0,0,0,0.25)] sm:size-28"
       >
-        {correct ? (
-          <path d="M5 13l4 4L19 7" />
-        ) : (
-          <path d="M6 6l12 12M18 6L6 18" />
-        )}
-      </svg>
+        <svg
+          viewBox="0 0 24 24"
+          className="size-11 sm:size-14"
+          fill="none"
+          stroke={correct ? "var(--tile-c)" : "var(--psc-red)"}
+          strokeWidth="4"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden
+        >
+          {correct ? (
+            <path d="M5 13l4 4L19 7" />
+          ) : (
+            <path d="M6 6l12 12M18 6L6 18" />
+          )}
+        </svg>
+      </motion.span>
     </span>
   );
 }

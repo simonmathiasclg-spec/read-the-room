@@ -68,7 +68,7 @@ export function CharacterBuilder({
   return (
     <div className="flex flex-col gap-5">
       <div className="flex items-center gap-4">
-        <Critter character={character} size={84} />
+        <Critter character={character} size={84} anim="idle" />
         <div className="text-left">
           <p className="font-display text-lg font-extrabold">Your critter</p>
           <p className="text-sm text-psc-gray-2">

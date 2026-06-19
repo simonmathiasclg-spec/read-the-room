@@ -5,11 +5,14 @@ export function Critter({
   character,
   size = 48,
   ring = true,
+  anim,
   className,
 }: {
   character: Character;
   size?: number;
   ring?: boolean;
+  /** Optional gentle CSS motion (auto-disabled under prefers-reduced-motion). */
+  anim?: "idle" | "wiggle";
   className?: string;
 }) {
   const color = COLORS.find((c) => c.id === character.color) ?? COLORS[0];
@@ -37,12 +40,18 @@ export function Critter({
     }
   };
 
+  const animClass =
+    anim === "idle" ? "critter-idle" : anim === "wiggle" ? "critter-wiggle" : "";
+
   return (
     <svg
       viewBox={`0 0 ${GRID} ${GRID}`}
       width={size}
       height={size}
-      className={className}
+      className={[animClass, className].filter(Boolean).join(" ")}
+      // A soft lift only when the rounded badge ring is present (won't blur the
+      // bare pixel sprites used in the picker).
+      style={ring ? { filter: "drop-shadow(0 1px 2px rgba(17,17,17,0.18))" } : undefined}
       shapeRendering="crispEdges"
       role="img"
       aria-label={`${character.animal} character`}
@@ -55,17 +64,17 @@ export function Critter({
             width={GRID}
             height={GRID}
             rx="4"
-            fill={`hsl(${hue} 70% 91%)`}
+            fill={`hsl(${hue} 70% 92%)`}
           />
           <rect
-            x="0.45"
-            y="0.45"
-            width={GRID - 0.9}
-            height={GRID - 0.9}
-            rx="3.6"
+            x="0.4"
+            y="0.4"
+            width={GRID - 0.8}
+            height={GRID - 0.8}
+            rx="3.7"
             fill="none"
-            stroke={`hsl(${hue} 70% 58%)`}
-            strokeWidth="0.7"
+            stroke={`hsl(${hue} 72% 56%)`}
+            strokeWidth="0.85"
           />
         </>
       )}
