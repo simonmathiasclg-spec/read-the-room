@@ -10,7 +10,7 @@ import { Podium } from "@/components/quiz/Podium";
 import { Button } from "@/components/ui/Button";
 import { Segmented } from "@/components/ui/Segmented";
 import { isFirebaseConfigured } from "@/lib/firebase";
-import { pickQuestionIds } from "@/lib/questions";
+import { pickQuestionIds, type Difficulty } from "@/lib/questions";
 import {
   createRoom,
   startGame,
@@ -22,9 +22,23 @@ import {
 } from "@/lib/room";
 
 const HOST_PIN_KEY = "rtr:hostPin";
+const HOST_DIFFICULTY_KEY = "rtr:hostDifficulty";
 
 const QUESTION_COUNTS = [5, 10, 15, 20] as const;
 const SECONDS_PER_Q = [10, 15, 20, 30] as const;
+const DIFFICULTIES = ["mixed", "rookie", "pro", "practitioner"] as const;
+const DIFFICULTY_LABELS: Record<Difficulty, string> = {
+  mixed: "Mixed",
+  rookie: "Rookie",
+  pro: "Pro",
+  practitioner: "Hard",
+};
+const DIFFICULTY_HINTS: Record<Difficulty, string> = {
+  mixed: "A balanced blend of rookie, pro & practitioner questions.",
+  rookie: "The four factors, behaviors & needs.",
+  pro: "Factor combinations & reference profiles.",
+  practitioner: "Interpretation & the Cognitive Assessment.",
+};
 
 const MODES: {
   id: GameMode;
@@ -41,6 +55,10 @@ export default function HostPage() {
   const [pin, setPin] = useState<string | null>(null);
   const [room, setRoom] = useState<Room | null>(null);
   const [config, setConfig] = useState<RoomConfig>(DEFAULT_CONFIG);
+  // Difficulty filters which tiers the round draws from. Kept host-side (drives
+  // question selection at start) rather than in the room config, so it needs no
+  // security-rules change.
+  const [difficulty, setDifficulty] = useState<Difficulty>("mixed");
   const [creating, setCreating] = useState(false);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -51,9 +69,18 @@ export default function HostPage() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time reads from window/localStorage
     setOrigin(window.location.origin);
+    const savedDifficulty = localStorage.getItem(HOST_DIFFICULTY_KEY);
+    if (savedDifficulty && savedDifficulty in DIFFICULTY_LABELS) {
+      setDifficulty(savedDifficulty as Difficulty);
+    }
     if (!isFirebaseConfigured) return;
     const saved = localStorage.getItem(HOST_PIN_KEY);
     if (saved) setPin(saved); // subscribe effect validates and may clear it
+  }, []);
+
+  const handleDifficulty = useCallback((d: Difficulty) => {
+    setDifficulty(d);
+    localStorage.setItem(HOST_DIFFICULTY_KEY, d); // survive a host refresh
   }, []);
 
   // Live room subscription (status, config, roster) for whatever PIN we host.
@@ -96,13 +123,16 @@ export default function HostPage() {
     setStarting(true);
     setError(null);
     try {
-      const questionIds = pickQuestionIds(room.config.totalQuestions);
+      const questionIds = pickQuestionIds(
+        room.config.totalQuestions,
+        difficulty,
+      );
       await startGame(pin, questionIds);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't start the game.");
       setStarting(false);
     }
-  }, [pin, room]);
+  }, [pin, room, difficulty]);
 
   const handleNewRoom = useCallback(() => {
     localStorage.removeItem(HOST_PIN_KEY);
@@ -122,8 +152,8 @@ export default function HostPage() {
             Set up your game
           </h1>
           <p className="mt-3 text-lg text-psc-gray-2">
-            Pick a mode and a round length, then put the big screen on the
-            projector.
+            Pick a mode, difficulty &amp; round length, then put the big screen
+            on the projector.
           </p>
 
           {/* Game mode */}
@@ -175,6 +205,19 @@ export default function HostPage() {
 
           {/* Round options */}
           <div className="mt-8 flex flex-col gap-7">
+            <div>
+              <Segmented
+                label="Difficulty"
+                name="difficulty"
+                options={DIFFICULTIES}
+                value={difficulty}
+                onChange={handleDifficulty}
+                renderOption={(d) => DIFFICULTY_LABELS[d]}
+              />
+              <p className="mt-2 text-sm text-psc-gray-2">
+                {DIFFICULTY_HINTS[difficulty]}
+              </p>
+            </div>
             <Segmented
               label="Number of questions"
               name="questions"
