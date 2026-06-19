@@ -1,31 +1,136 @@
 @import "tailwindcss";
 
-/* Predictive Success brand tokens (approx — confirm against brand guide) */
+/* ============================================================
+   Read the Room — Design Tokens
+   Predictive Success brand: red, gold, black, white, gray ramp.
+   ============================================================ */
 :root {
-  --psc-red: #ed1c24; /* logo mark — primary accent */
-  --psc-gold: #f5a800; /* underline — secondary accent */
-  --psc-black: #111111; /* wordmark / text */
-  --psc-paper: #ffffff; /* background */
+  /* Brand core */
+  --psc-red: #ed1c24; /* primary accent — logo mark */
+  --psc-red-deep: #a50f15; /* pressed/3D shadow + gradients */
+  --psc-gold: #f5a800; /* secondary accent — underline */
+  --psc-gold-deep: #bd8200; /* pressed/3D shadow */
+  --psc-black: #111111; /* text / stage */
+  --psc-ink: #0a0a0a; /* deepest stage background */
+  --psc-paper: #ffffff; /* light background */
+
+  /* Neutral ramp (from the four logo squares) */
   --psc-gray-1: #b3b3b3;
   --psc-gray-2: #6e6e6e;
   --psc-gray-3: #3a3a3a;
+
+  /* Answer-tile colors (color + shape, color-blind safe) */
+  --tile-a: #ed1c24; /* red    · triangle (Factor A) */
+  --tile-b: #f5a800; /* gold   · diamond  (Factor B) */
+  --tile-c: #1fa463; /* green  · circle   (Factor C) */
+  --tile-d: #2d5ba8; /* blue   · square   (Factor D) */
+
+  /* Radii */
+  --radius-pill: 999px;
 }
 
 @theme inline {
+  /* Colors → utilities (bg-psc-red, text-psc-gold, ring-tile-c, …) */
   --color-psc-red: var(--psc-red);
+  --color-psc-red-deep: var(--psc-red-deep);
   --color-psc-gold: var(--psc-gold);
+  --color-psc-gold-deep: var(--psc-gold-deep);
   --color-psc-black: var(--psc-black);
+  --color-psc-ink: var(--psc-ink);
   --color-psc-paper: var(--psc-paper);
   --color-psc-gray-1: var(--psc-gray-1);
   --color-psc-gray-2: var(--psc-gray-2);
   --color-psc-gray-3: var(--psc-gray-3);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-tile-a: var(--tile-a);
+  --color-tile-b: var(--tile-b);
+  --color-tile-c: var(--tile-c);
+  --color-tile-d: var(--tile-d);
+
+  /* Typography */
+  --font-display: var(--font-archivo), system-ui, sans-serif;
+  --font-sans: var(--font-geist-sans), system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+
+  /* Motion */
+  --animate-pop: pop 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-rise: rise 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-/* Workshop screens are a controlled environment — keep a single light theme. */
+@keyframes pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.82);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes rise {
+  0% {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ============================================================
+   Base
+   ============================================================ */
 body {
   background: var(--psc-paper);
   color: var(--psc-black);
-  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Surfaces ----------------------------------------------------*/
+
+/* Projected "game-show" stage: near-black with a warm spotlight. */
+.stage {
+  background:
+    radial-gradient(115% 90% at 50% -10%, #232323 0%, var(--psc-ink) 58%),
+    radial-gradient(80% 60% at 100% 0%, rgba(245, 168, 0, 0.16), transparent 60%),
+    radial-gradient(70% 60% at 0% 100%, rgba(237, 28, 36, 0.16), transparent 60%);
+  color: #fff;
+}
+
+/* Light hero wash for landing / player views. */
+.wash {
+  background:
+    radial-gradient(90% 55% at 50% -8%, rgba(245, 168, 0, 0.12), transparent 60%),
+    radial-gradient(70% 50% at 100% 110%, rgba(237, 28, 36, 0.08), transparent 60%);
+}
+
+/* Hand-drawn gold underline swoosh under a heading. */
+.swoosh {
+  position: relative;
+}
+.swoosh::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -0.12em;
+  height: 0.16em;
+  border-radius: var(--radius-pill);
+  background: var(--psc-gold);
+  transform: skewX(-12deg);
+}
+
+/* ============================================================
+   Accessibility — honor reduced motion
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
 }

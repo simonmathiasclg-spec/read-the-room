@@ -1,9 +1,10 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import PlayerRoster from "@/components/PlayerRoster";
 import SetupNotice from "@/components/SetupNotice";
+import { Wordmark } from "@/components/brand/Wordmark";
+import { Button, ButtonLink } from "@/components/ui/Button";
 import { isFirebaseConfigured } from "@/lib/firebase";
 import {
   joinRoom,
@@ -126,80 +127,114 @@ export default function PlayPage() {
 
   if (!isFirebaseConfigured) return <SetupNotice />;
 
+  // ---- Joined: the waiting-room controller -----------------------------
   if (joined) {
     return (
-      <main className="mx-auto flex w-full max-w-md flex-1 flex-col items-center px-6 py-10 text-center">
-        <span className="inline-block h-1 w-16 rounded-full bg-psc-gold" />
-        <h1 className="mt-4 text-3xl font-black">You&apos;re in! 🎉</h1>
-        <p className="mt-1 text-psc-gray-2">
-          Room <span className="font-mono font-bold text-psc-black">{pin}</span> ·
-          look up at the big screen.
-        </p>
-
-        <div className="mt-8 w-full rounded-2xl border border-psc-gray-1/40 p-5">
-          <PlayerRoster players={players} highlightId={playerId} />
-        </div>
-
-        <button
-          onClick={handleLeave}
-          className="mt-8 text-sm font-semibold text-psc-gray-2 underline"
+      <main className="wash flex flex-1 flex-col items-center px-6 py-10 text-center">
+        <div
+          className="flex w-full max-w-md flex-1 flex-col items-center"
+          style={{ animation: "var(--animate-rise)" }}
         >
-          Leave room
-        </button>
+          <span className="text-5xl" aria-hidden>
+            🎉
+          </span>
+          <h1 className="mt-3 font-display text-4xl font-black sm:text-5xl">
+            You&apos;re in!
+          </h1>
+          <p className="mt-2 text-lg text-psc-gray-2">
+            <span className="font-bold text-psc-black">{name}</span> · room{" "}
+            <span className="font-mono font-bold text-psc-red">{pin}</span>
+          </p>
+
+          <div className="mt-7 w-full rounded-2xl bg-psc-black px-6 py-5 text-xl font-extrabold text-white">
+            👀 Look up at the big screen
+          </div>
+
+          <div className="mt-7 w-full rounded-3xl border border-black/5 bg-white p-5 text-left shadow-[0_2px_24px_rgba(17,17,17,0.07)]">
+            <PlayerRoster
+              players={players}
+              highlightId={playerId}
+              emptyLabel="You're first in — hang tight!"
+            />
+          </div>
+
+          <Button
+            onClick={handleLeave}
+            variant="ghost"
+            size="sm"
+            className="mt-8"
+          >
+            Leave room
+          </Button>
+        </div>
       </main>
     );
   }
 
+  // ---- Join form -------------------------------------------------------
   return (
-    <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-6 py-12">
-      <span className="mb-4 inline-block h-1 w-16 rounded-full bg-psc-gold" />
-      <h1 className="text-4xl font-black">Join the game</h1>
+    <main className="wash flex flex-1 flex-col justify-center px-6 py-12">
+      <div className="mx-auto w-full max-w-md">
+        <Wordmark className="mb-8" />
+        <h1 className="font-display text-5xl font-black leading-[0.95]">
+          Join the
+          <br />
+          <span className="text-psc-red">game</span>
+        </h1>
 
-      <form onSubmit={handleJoin} className="mt-8 flex flex-col gap-5">
-        <label className="flex flex-col gap-2">
-          <span className="text-sm font-semibold uppercase tracking-wide text-psc-gray-2">
-            Game PIN
-          </span>
-          <input
-            inputMode="numeric"
-            autoComplete="off"
-            pattern="\d{4}"
-            maxLength={4}
-            value={pin}
-            onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
-            placeholder="1234"
-            className="rounded-xl border-2 border-psc-gray-1 px-4 py-4 text-center font-mono text-3xl font-black tracking-[0.3em] tabular-nums outline-none focus:border-psc-red"
-          />
-        </label>
+        <form onSubmit={handleJoin} className="mt-8 flex flex-col gap-5">
+          <label className="flex flex-col gap-2">
+            <span className="text-xs font-bold uppercase tracking-[0.18em] text-psc-gray-2">
+              Game PIN
+            </span>
+            <input
+              inputMode="numeric"
+              autoComplete="off"
+              pattern="\d{4}"
+              maxLength={4}
+              value={pin}
+              onChange={(e) =>
+                setPin(e.target.value.replace(/\D/g, "").slice(0, 4))
+              }
+              placeholder="1234"
+              aria-label="Game PIN"
+              className="rounded-2xl border-2 border-psc-gray-1 bg-white px-4 py-5 text-center font-mono text-4xl font-black tracking-[0.4em] tabular-nums outline-none transition-colors placeholder:text-psc-gray-1/50 focus:border-psc-red focus:ring-4 focus:ring-psc-red/15"
+            />
+          </label>
 
-        <label className="flex flex-col gap-2">
-          <span className="text-sm font-semibold uppercase tracking-wide text-psc-gray-2">
-            Your name
-          </span>
-          <input
-            autoComplete="off"
-            maxLength={20}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. Sam"
-            className="rounded-xl border-2 border-psc-gray-1 px-4 py-4 text-xl font-semibold outline-none focus:border-psc-red"
-          />
-        </label>
+          <label className="flex flex-col gap-2">
+            <span className="text-xs font-bold uppercase tracking-[0.18em] text-psc-gray-2">
+              Your name
+            </span>
+            <input
+              autoComplete="off"
+              maxLength={20}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Sam"
+              aria-label="Your name"
+              className="rounded-2xl border-2 border-psc-gray-1 bg-white px-4 py-4 text-xl font-semibold outline-none transition-colors placeholder:text-psc-gray-1 focus:border-psc-red focus:ring-4 focus:ring-psc-red/15"
+            />
+          </label>
 
-        {error && <p className="font-medium text-psc-red">{error}</p>}
+          {error && (
+            <p
+              role="alert"
+              className="rounded-xl bg-psc-red/10 px-4 py-3 font-semibold text-psc-red"
+            >
+              {error}
+            </p>
+          )}
 
-        <button
-          type="submit"
-          disabled={joining}
-          className="rounded-2xl bg-psc-red px-8 py-5 text-xl font-bold text-white shadow-lg shadow-psc-red/20 transition-transform hover:-translate-y-0.5 disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-psc-red"
-        >
-          {joining ? "Joining…" : "Join"}
-        </button>
-      </form>
+          <Button type="submit" loading={joining} size="lg" fullWidth>
+            {joining ? "Joining…" : "Join game"}
+          </Button>
+        </form>
 
-      <Link href="/" className="mt-8 text-sm text-psc-gray-2 underline">
-        ← Back
-      </Link>
+        <ButtonLink href="/" variant="ghost" size="sm" className="mt-6">
+          ← Back
+        </ButtonLink>
+      </div>
     </main>
   );
 }

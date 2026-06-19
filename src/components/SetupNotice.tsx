@@ -2,10 +2,12 @@
  *  instead of throwing. */
 export default function SetupNotice() {
   return (
-    <main className="mx-auto flex max-w-lg flex-1 flex-col justify-center gap-4 px-6 py-16">
-      <span className="inline-block h-1 w-16 rounded-full bg-psc-gold" />
-      <h1 className="text-2xl font-black">Almost there — add your Firebase keys</h1>
-      <p className="text-psc-gray-2">
+    <main className="wash mx-auto flex max-w-lg flex-1 flex-col justify-center gap-4 px-6 py-16">
+      <span className="inline-block h-1.5 w-16 rounded-full bg-psc-gold" />
+      <h1 className="font-display text-3xl font-black">
+        Almost there — add your Firebase keys
+      </h1>
+      <p className="text-lg text-psc-gray-2">
         This app needs a Firebase Realtime Database to sync rooms. Create a
         project at{" "}
         <a

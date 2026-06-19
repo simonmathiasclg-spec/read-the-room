@@ -1,9 +1,10 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import PlayerRoster from "@/components/PlayerRoster";
 import SetupNotice from "@/components/SetupNotice";
+import { Wordmark } from "@/components/brand/Wordmark";
+import { ButtonLink, Button } from "@/components/ui/Button";
 import { isFirebaseConfigured } from "@/lib/firebase";
 import {
   createRoom,
@@ -72,55 +73,74 @@ export default function HostPage() {
 
   if (!isFirebaseConfigured) return <SetupNotice />;
 
+  // ---- Pre-create: invite to start the show ----------------------------
   if (!pin) {
     return (
-      <main className="flex flex-1 flex-col items-center justify-center gap-6 px-6 py-16 text-center">
-        <span className="inline-block h-1 w-16 rounded-full bg-psc-gold" />
-        <h1 className="text-4xl font-black">Host the big screen</h1>
-        <p className="max-w-sm text-psc-gray-2">
-          Create a room and players join by PIN on their phones.
+      <main className="stage flex flex-1 flex-col items-center justify-center gap-8 px-6 py-16 text-center">
+        <Wordmark tone="light" />
+        <h1 className="font-display text-5xl font-black leading-[0.95] sm:text-7xl">
+          Host the
+          <br />
+          <span className="text-psc-gold">big screen</span>
+        </h1>
+        <p className="max-w-sm text-lg text-white/70">
+          Create a room, put this on the projector, and players join from their
+          phones with the PIN.
         </p>
-        <button
-          onClick={handleCreate}
-          disabled={creating}
-          className="rounded-2xl bg-psc-red px-10 py-5 text-xl font-bold text-white shadow-lg shadow-psc-red/20 transition-transform hover:-translate-y-0.5 disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-psc-red"
-        >
+        <Button onClick={handleCreate} loading={creating} size="lg">
           {creating ? "Creating…" : "Create a room"}
-        </button>
-        {error && <p className="font-medium text-psc-red">{error}</p>}
-        <Link href="/" className="text-sm text-psc-gray-2 underline">
+        </Button>
+        {error && <p className="font-semibold text-psc-gold">{error}</p>}
+        <ButtonLink href="/" variant="ghost" size="sm" className="!text-white/60">
           ← Back
-        </Link>
+        </ButtonLink>
       </main>
     );
   }
 
+  // ---- Live lobby: the projected game-show screen ----------------------
   return (
-    <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col items-center px-6 py-10">
-      <p className="text-sm font-semibold uppercase tracking-wide text-psc-gray-2">
-        Join at <span className="text-psc-black">{origin || "this site"}/play</span>
-      </p>
+    <main className="stage flex flex-1 flex-col px-6 py-8 sm:px-10">
+      {/* Top bar */}
+      <div className="flex items-center justify-between gap-4">
+        <Wordmark tone="light" size="sm" />
+        <p className="text-right text-sm font-semibold text-white/60 sm:text-base">
+          Join at{" "}
+          <span className="font-bold text-white">
+            {(origin || "this site").replace(/^https?:\/\//, "")}/play
+          </span>
+        </p>
+      </div>
 
-      <div className="my-6 flex flex-col items-center">
-        <span className="text-sm font-semibold uppercase tracking-wide text-psc-gray-2">
+      {/* PIN hero */}
+      <div className="flex flex-1 flex-col items-center justify-center gap-6 py-8">
+        <p className="text-sm font-bold uppercase tracking-[0.3em] text-psc-gold">
           Game PIN
-        </span>
-        <span className="font-mono text-7xl font-black tracking-[0.15em] text-psc-red tabular-nums sm:text-8xl">
-          {pin}
-        </span>
+        </p>
+        <div className="flex gap-3 sm:gap-5" style={{ animation: "var(--animate-pop)" }}>
+          {pin.split("").map((digit, i) => (
+            <span
+              key={i}
+              className="flex size-20 items-center justify-center rounded-2xl bg-white font-mono text-5xl font-black text-psc-black shadow-[0_8px_0_rgba(0,0,0,0.35)] sm:size-32 sm:rounded-3xl sm:text-8xl"
+            >
+              {digit}
+            </span>
+          ))}
+        </div>
+        <p className="text-base text-white/55">
+          Enter this PIN at <span className="font-semibold text-white/80">/play</span> to jump in.
+        </p>
       </div>
 
-      <div className="w-full max-w-xl rounded-2xl border border-psc-gray-1/40 p-5">
-        <PlayerRoster players={players} />
+      {/* Roster */}
+      <div className="mx-auto w-full max-w-4xl rounded-3xl border border-white/10 bg-white/[0.04] p-5 backdrop-blur-sm sm:p-6">
+        <PlayerRoster players={players} tone="stage" />
       </div>
 
-      <div className="mt-8 flex items-center gap-4">
-        <button
-          onClick={handleNewRoom}
-          className="text-sm font-semibold text-psc-gray-2 underline"
-        >
+      <div className="mt-6 flex justify-center">
+        <Button onClick={handleNewRoom} variant="ghost" size="sm" className="!text-white/50">
           End &amp; start a new room
-        </button>
+        </Button>
       </div>
     </main>
   );
