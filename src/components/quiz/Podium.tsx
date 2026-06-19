@@ -34,14 +34,16 @@ function Step({
       initial={{ y: 60, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ delay, type: "spring", stiffness: 320, damping: 22 }}
-      className="flex w-24 flex-col items-center sm:w-40"
+      className={`flex flex-col items-center ${
+        place === 1 ? "w-32 sm:w-48" : "w-24 sm:w-40"
+      }`}
     >
       {place === 1 && (
         <motion.span
           initial={{ scale: 0, rotate: -20 }}
           animate={{ scale: 1, rotate: 0 }}
           transition={{ delay: delay + 0.3, type: "spring", stiffness: 400 }}
-          className="text-3xl sm:text-5xl"
+          className="text-4xl sm:text-6xl"
           aria-hidden
         >
           👑
@@ -59,18 +61,21 @@ function Step({
       >
         <Critter
           character={characterFor(player)}
-          size={56}
+          size={place === 1 ? 128 : 56}
           anim={place === 1 ? "wiggle" : "idle"}
-          className="size-12 sm:size-20"
+          className={place === 1 ? "size-24 sm:size-36" : "size-12 sm:size-20"}
         />
       </motion.div>
-      <span className="-mt-1 text-xl sm:text-3xl" aria-hidden>
+      <span
+        className={place === 1 ? "-mt-1 text-3xl sm:text-5xl" : "-mt-1 text-xl sm:text-3xl"}
+        aria-hidden
+      >
         {medal}
       </span>
       <span
-        className={`mt-0.5 max-w-full truncate font-display text-base font-extrabold sm:text-2xl ${
-          highlight ? "text-psc-red" : "text-white"
-        }`}
+        className={`mt-0.5 max-w-full truncate font-display font-extrabold ${
+          place === 1 ? "text-xl sm:text-3xl" : "text-base sm:text-2xl"
+        } ${highlight ? "text-psc-red" : "text-white"}`}
       >
         {player.name}
       </span>
@@ -106,14 +111,19 @@ export function Podium({
         <motion.div
           initial={{ opacity: 0, y: -16 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-8 text-center"
+          className="mb-6 text-center"
         >
-          <p className="text-sm font-bold uppercase tracking-[0.3em] text-psc-gold">
+          <p className="text-base font-bold uppercase tracking-[0.32em] text-psc-gold sm:text-lg">
             🏆 Winner
           </p>
-          <h1 className="mt-2 font-display text-5xl font-black text-white sm:text-7xl">
+          <motion.h1
+            initial={{ scale: 0.5, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ delay: 0.15, type: "spring", stiffness: 300, damping: 12 }}
+            className="mt-1 font-display text-6xl font-black leading-none text-white drop-shadow-[0_4px_24px_rgba(245,168,0,0.35)] sm:text-8xl"
+          >
             {winner.name}
-          </h1>
+          </motion.h1>
         </motion.div>
       )}
 

@@ -305,12 +305,21 @@ export default function PlayPage() {
     const hasAnswered = answeredIndex === qIndex;
 
     // Live question, not yet answered: ONLY the four shape buttons (look up!).
+    // Prompt up top; buttons anchored to the bottom half so they're thumb-easy.
     if (status === "question" && !hasAnswered) {
       return (
-        <main className="flex flex-1 flex-col bg-psc-ink px-4 pb-4 pt-3">
-          <p className="py-2 text-center text-sm font-bold uppercase tracking-[0.18em] text-white/55">
-            Tap your answer · look up 👀
-          </p>
+        <main className="flex flex-1 flex-col bg-psc-ink p-4">
+          <div className="flex flex-[0.72] flex-col items-center justify-center px-4 text-center">
+            <span className="text-5xl" aria-hidden>
+              👀
+            </span>
+            <p className="mt-3 font-display text-2xl font-extrabold text-white sm:text-3xl">
+              Look up at the screen
+            </p>
+            <p className="mt-1 text-base text-white/55">
+              then pick your answer below
+            </p>
+          </div>
           <div className="min-h-0 flex-1">
             <PhoneButtons onPick={handlePick} />
           </div>

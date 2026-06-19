@@ -2,8 +2,8 @@
 
 import { QRCodeSVG } from "qrcode.react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import PlayerRoster from "@/components/PlayerRoster";
 import SetupNotice from "@/components/SetupNotice";
+import { CritterScatter } from "@/components/character/CritterScatter";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { HostQuiz } from "@/components/quiz/HostQuiz";
 import { Podium } from "@/components/quiz/Podium";
@@ -290,7 +290,7 @@ export default function HostPage() {
   // ===== B. Waiting room — the projected stage =========================
   const canStart = room.players.length > 0;
   return (
-    <main className="stage flex flex-1 flex-col px-6 py-7 sm:px-10">
+    <main className="stage flex flex-1 flex-col px-6 py-6 sm:px-10">
       {/* Top bar */}
       <div className="flex items-center justify-between gap-4">
         <Wordmark tone="light" size="sm" />
@@ -299,20 +299,17 @@ export default function HostPage() {
         </p>
       </div>
 
-      {/* PIN + QR */}
-      <div className="flex flex-1 flex-col items-center justify-center gap-10 py-8 lg:flex-row lg:gap-16">
-        <div
-          className="flex flex-col items-center gap-5"
-          style={{ animation: "var(--animate-pop)" }}
-        >
-          <p className="text-sm font-bold uppercase tracking-[0.3em] text-psc-gold">
+      {/* Compact PIN + QR band */}
+      <div className="mt-5 flex items-center justify-center gap-8 sm:gap-14">
+        <div className="flex flex-col items-center gap-2">
+          <p className="text-xs font-bold uppercase tracking-[0.3em] text-psc-gold">
             Game PIN
           </p>
-          <div className="flex gap-3 sm:gap-4">
+          <div className="flex gap-2 sm:gap-2.5">
             {pin.split("").map((digit, i) => (
               <span
                 key={i}
-                className="flex size-16 items-center justify-center rounded-2xl bg-white font-mono text-4xl font-black text-psc-black shadow-[0_8px_0_rgba(0,0,0,0.35)] sm:size-24 sm:text-6xl"
+                className="flex size-12 items-center justify-center rounded-xl bg-white font-mono text-2xl font-black text-psc-black shadow-[0_5px_0_rgba(0,0,0,0.35)] sm:size-16 sm:text-4xl"
               >
                 {digit}
               </span>
@@ -320,34 +317,31 @@ export default function HostPage() {
           </div>
         </div>
 
-        <div className="flex flex-col items-center gap-4">
-          <p className="text-sm font-bold uppercase tracking-[0.3em] text-psc-gold">
+        <div className="flex flex-col items-center gap-2">
+          <p className="text-xs font-bold uppercase tracking-[0.3em] text-psc-gold">
             Scan to join
           </p>
-          <div className="rounded-3xl bg-white p-4 shadow-[0_8px_0_rgba(0,0,0,0.35)]">
+          <div className="rounded-2xl bg-white p-2.5 shadow-[0_5px_0_rgba(0,0,0,0.35)]">
             {joinUrl ? (
               <QRCodeSVG
                 value={joinUrl}
-                size={196}
+                size={120}
                 level="M"
                 marginSize={0}
                 aria-label={`QR code to join room ${pin}`}
               />
             ) : (
-              <div className="size-[196px]" />
+              <div className="size-[120px]" />
             )}
           </div>
-          <p className="text-sm text-white/55">Points straight to the name screen</p>
         </div>
       </div>
 
-      {/* Roster */}
-      <div className="mx-auto w-full max-w-4xl rounded-3xl border border-white/10 bg-white/[0.04] p-5 backdrop-blur-sm sm:p-6">
-        <PlayerRoster players={room.players} tone="stage" />
-      </div>
+      {/* Player critters — big, scattered, filling the screen as they join */}
+      <CritterScatter players={room.players} />
 
       {/* Controls */}
-      <div className="mt-7 flex flex-col items-center gap-3">
+      <div className="flex flex-col items-center gap-3">
         <Button
           onClick={handleStart}
           loading={starting}

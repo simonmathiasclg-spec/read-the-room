@@ -16,10 +16,43 @@ import { Countdown } from "./Countdown";
 import { Leaderboard } from "./Leaderboard";
 import { Glyph, TILES } from "./tiles";
 
+/**
+ * Deterministic per-question option order, so the correct answer lands in a
+ * varying tile and every render/reload (and every client) agrees. Seeded by
+ * question id + room pin → returns where each original option index sits:
+ * `order[tileIndex] = originalOptionIndex`.
+ */
+function shuffledOrder(seed: string): number[] {
+  let h = 2166136261;
+  for (let i = 0; i < seed.length; i++) {
+    h ^= seed.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  const rng = () => {
+    h = (h + 0x6d2b79f5) | 0;
+    let t = Math.imul(h ^ (h >>> 15), 1 | h);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  const order = [0, 1, 2, 3];
+  for (let i = order.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [order[i], order[j]] = [order[j], order[i]];
+  }
+  return order;
+}
+
 export function HostQuiz({ pin, room }: { pin: string; room: Room }) {
   const { status, questionIndex, config, players } = room;
   const total = room.questionIds.length || config.totalQuestions;
-  const question = questionById(room.questionIds[questionIndex] ?? "");
+  const qId = room.questionIds[questionIndex] ?? "";
+  const question = questionById(qId);
+
+  // Per-question shuffle of the four options (display only). `order[tile]` is
+  // the original option index shown on that tile; `correctPos` is the tile the
+  // correct answer landed on — which is what the player's tap is scored against.
+  const order = useMemo(() => shuffledOrder(`${qId}:${pin}`), [qId, pin]);
+  const correctPos = question ? order.indexOf(question.answer) : 0;
 
   const [remaining, setRemaining] = useState(config.secondsPerQuestion);
   // Tie the answered count to its question so a stale count from the previous
@@ -43,10 +76,10 @@ export function HostQuiz({ pin, room }: { pin: string; room: Room }) {
     void scoreAndReveal(
       pin,
       questionIndex,
-      question.answer,
+      correctPos,
       config.secondsPerQuestion,
     );
-  }, [pin, status, questionIndex, question, config.secondsPerQuestion]);
+  }, [pin, status, questionIndex, question, correctPos, config.secondsPerQuestion]);
 
   // Live answer count (during the question), tagged with its question index.
   useEffect(() => {
@@ -173,10 +206,11 @@ export function HostQuiz({ pin, room }: { pin: string; room: Room }) {
       </div>
 
       <div className="mx-auto grid w-full max-w-5xl flex-1 grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
-        {question.options.map((opt, i) => {
+        {order.map((optIdx, i) => {
           const tile = TILES[i];
-          const correct = isReveal && i === question.answer;
-          const dimmed = isReveal && i !== question.answer;
+          const opt = question.options[optIdx];
+          const correct = isReveal && i === correctPos;
+          const dimmed = isReveal && i !== correctPos;
           return (
             <div
               key={tile.label}
