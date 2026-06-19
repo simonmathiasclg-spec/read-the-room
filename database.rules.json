@@ -1,0 +1,86 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+
+    "rooms": {
+      ".read": false,
+      ".write": false,
+
+      "$pin": {
+        ".read": "$pin.matches(/^[0-9]{4}$/)",
+        ".write": "$pin.matches(/^[0-9]{4}$/) && newData.exists()",
+        ".validate": "newData.hasChildren(['status', 'createdAt', 'config'])",
+
+        "status": {
+          ".validate": "newData.isString() && (newData.val() == 'lobby' || newData.val() == 'question' || newData.val() == 'reveal' || newData.val() == 'podium')"
+        },
+        "createdAt": {
+          ".validate": "newData.isNumber() && (!data.exists() || newData.val() == data.val())"
+        },
+        "questionStartedAt": {
+          ".validate": "newData.isNumber()"
+        },
+        "questionIndex": {
+          ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 200"
+        },
+        "questionIds": {
+          ".validate": "newData.hasChildren()",
+          "$i": {
+            ".validate": "newData.isString() && newData.val().length <= 16"
+          }
+        },
+        "config": {
+          ".validate": "newData.hasChildren(['mode', 'totalQuestions', 'secondsPerQuestion'])",
+          "mode": { ".validate": "newData.isString() && newData.val().length <= 32" },
+          "totalQuestions": { ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 100" },
+          "secondsPerQuestion": { ".validate": "newData.isNumber() && newData.val() >= 3 && newData.val() <= 120" },
+          "$other": { ".validate": false }
+        },
+
+        "players": {
+          "$playerId": {
+            ".validate": "newData.hasChildren(['name'])",
+            "name": { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 24" },
+            "joinedAt": { ".validate": "newData.isNumber()" },
+            "score": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1000000" },
+            "streak": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1000" },
+            "character": {
+              ".validate": "newData.hasChildren(['animal', 'color', 'accessory', 'accent'])",
+              "animal": { ".validate": "newData.isString() && newData.val().length <= 16" },
+              "color": { ".validate": "newData.isString() && newData.val().length <= 16" },
+              "accessory": { ".validate": "newData.isString() && newData.val().length <= 16" },
+              "accent": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 360" },
+              "$other": { ".validate": false }
+            },
+            "$other": { ".validate": false }
+          }
+        },
+
+        "answers": {
+          "$qIndex": {
+            "$playerId": {
+              ".validate": "newData.hasChildren(['choice'])",
+              "choice": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 3" },
+              "answeredAt": { ".validate": "newData.isNumber()" },
+              "$other": { ".validate": false }
+            }
+          }
+        },
+
+        "results": {
+          "$qIndex": {
+            "$playerId": {
+              ".validate": "newData.hasChildren(['correct', 'points'])",
+              "correct": { ".validate": "newData.isBoolean()" },
+              "points": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1000000" },
+              "$other": { ".validate": false }
+            }
+          }
+        },
+
+        "$other": { ".validate": false }
+      }
+    }
+  }
+}
