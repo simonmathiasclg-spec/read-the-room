@@ -222,7 +222,12 @@ export default function HostPage() {
   const joinUrl = origin ? `${origin}/play?pin=${pin}` : "";
 
   // ===== C. Live quiz — question + reveal loop ==========================
-  if (room.status === "question" || room.status === "reveal") {
+  // Require questionIds so a stale/half-written room can't dead-end the host;
+  // without them it falls back to the lobby, where "Start" re-seeds the round.
+  if (
+    (room.status === "question" || room.status === "reveal") &&
+    room.questionIds.length > 0
+  ) {
     return <HostQuiz pin={pin} room={room} />;
   }
 
