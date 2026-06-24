@@ -53,10 +53,25 @@ export function HostDefuse({
     revealedFor.current = questionIndex;
     void revealDefuse(pin);
   }, [pin, status, questionIndex]);
+  // Always-latest reveal, so the per-scenario subscription can trigger it
+  // without re-subscribing (and without capturing a stale closure).
+  const revealRef = useRef(reveal);
+  useEffect(() => {
+    revealRef.current = reveal;
+  }, [reveal]);
 
   // Current scenario's lock-in + role map (the latter only for the Lead crown).
+  // Reset both on scenario change so a previous scenario's lock-in can't linger
+  // and spuriously resolve the next one. The lock-in itself drives the reveal,
+  // from inside this callback, so it only ever fires for the current scenario.
   useEffect(() => {
-    const off1 = subscribeLockin(pin, questionIndex, setLockin);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- clear stale per-scenario state on change
+    setLockin(null);
+    setRoles({});
+    const off1 = subscribeLockin(pin, questionIndex, (lk) => {
+      setLockin(lk);
+      if (lk) revealRef.current();
+    });
     const off2 = subscribeRoles(pin, questionIndex, setRoles);
     return () => {
       off1();
@@ -66,11 +81,6 @@ export function HostDefuse({
 
   // Whole-session lock-ins for the closing summary.
   useEffect(() => subscribeLockins(pin, setAllLockins), [pin]);
-
-  // The pod locked in → resolve immediately.
-  useEffect(() => {
-    if (status === "question" && lockin) reveal();
-  }, [status, lockin, reveal]);
 
   // Host-authoritative countdown; out of time resolves the scenario too.
   useEffect(() => {

@@ -43,9 +43,13 @@ export function DefusePhone({
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    // A new scenario opens → drop any half-tapped confirm and re-subscribe.
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset transient confirm UI on scenario change
+    // A new scenario opens → drop the previous scenario's card, lock-in and
+    // half-tapped confirm before re-subscribing, so nothing stale flashes.
+    /* eslint-disable react-hooks/set-state-in-effect -- reset per-scenario state on change */
     setConfirming(null);
+    setRole(null);
+    setLockin(null);
+    /* eslint-enable react-hooks/set-state-in-effect */
     const off1 = subscribeRole(pin, questionIndex, playerId, setRole);
     const off2 = subscribeLockin(pin, questionIndex, setLockin);
     return () => {
