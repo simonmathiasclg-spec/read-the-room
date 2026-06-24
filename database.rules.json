@@ -79,6 +79,32 @@
           }
         },
 
+        "roles": {
+          "$sIndex": {
+            "$playerId": {
+              ".validate": "newData.hasChildren(['lead'])",
+              "lead": { ".validate": "newData.isBoolean()" },
+              "clues": {
+                "$i": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 20" }
+              },
+              "options": {
+                "$i": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 20" }
+              },
+              "$other": { ".validate": false }
+            }
+          }
+        },
+
+        "lockins": {
+          "$sIndex": {
+            ".validate": "newData.hasChildren(['option', 'by'])",
+            "option": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 20" },
+            "by": { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 64" },
+            "at": { ".validate": "newData.isNumber()" },
+            "$other": { ".validate": false }
+          }
+        },
+
         "$other": { ".validate": false }
       }
     }

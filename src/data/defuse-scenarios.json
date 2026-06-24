@@ -1,0 +1,377 @@
+{
+  "scenarios": [
+    {
+      "id": "s01",
+      "difficulty": "gimme",
+      "setting": "Software team",
+      "situation": "Priya just shipped a big feature. In standup she lit up talking about it and clearly wants the team to notice. How do you respond so she feels recognized?",
+      "clues": [
+        {
+          "plain": "Priya is energized by people and loves a bit of the spotlight.",
+          "term": "High Extraversion"
+        },
+        {
+          "plain": "She's motivated by visible wins and public recognition.",
+          "term": "High Extraversion / individual recognition"
+        }
+      ],
+      "options": [
+        {
+          "text": "Give her a quiet, private thank-you note later.",
+          "correct": false
+        },
+        {
+          "text": "Call out her win in front of the whole team and let her share how she did it.",
+          "correct": true
+        },
+        {
+          "text": "Send a detailed written breakdown of what she could improve.",
+          "correct": false
+        },
+        {
+          "text": "Say nothing — the work speaks for itself.",
+          "correct": false
+        }
+      ],
+      "whyCorrect": "Priya's drive is social and recognition-seeking (High Extraversion). Public credit + a chance to talk about it lands perfectly.",
+      "whyWrongCommon": "A private note isn't wrong-hearted, but it misses what energizes her — she wants the room to see it.",
+      "facilitatorPrompt": "Who on your real team lights up with public recognition, and who would rather get it quietly?"
+    },
+    {
+      "id": "s02",
+      "difficulty": "standard",
+      "setting": "Accounting firm",
+      "situation": "Marcus snapped at the team in today's standup, then went silent for the rest of the meeting. How do you address it?",
+      "clues": [
+        {
+          "plain": "Marcus likes things done exactly right and hates feeling rushed.",
+          "term": "High Formality"
+        },
+        {
+          "plain": "Big public confrontation drains him; he opens up one-on-one.",
+          "term": "Low Extraversion"
+        }
+      ],
+      "options": [
+        {
+          "text": "Raise it in the next team meeting so everyone can clear the air.",
+          "correct": false
+        },
+        {
+          "text": "Pull him aside privately, later, with a calm and specific plan.",
+          "correct": true
+        },
+        {
+          "text": "Let it blow over — don't bring it up at all.",
+          "correct": false
+        },
+        {
+          "text": "Send a quick all-team message reminding everyone to stay positive.",
+          "correct": false
+        }
+      ],
+      "whyCorrect": "Low Extraversion means a public call-out backfires; High Formality means he needs a clear, structured plan. A private, prepared one-on-one fits both.",
+      "whyWrongCommon": "Clearing the air in the room feels fair, but it's exactly the public confrontation that shuts him down.",
+      "facilitatorPrompt": "When someone's upset, does your team default to addressing it publicly or privately?"
+    },
+    {
+      "id": "s03",
+      "difficulty": "standard",
+      "setting": "Retail / store team",
+      "situation": "Dana keeps reorganizing the team's shared process and pushing for faster decisions. A couple of teammates feel steamrolled. How do you channel her?",
+      "clues": [
+        {
+          "plain": "Dana is driven to take charge and make things happen fast.",
+          "term": "High Dominance"
+        },
+        {
+          "plain": "She gets impatient with slow, repetitive routines.",
+          "term": "Low Patience"
+        }
+      ],
+      "options": [
+        {
+          "text": "Give her ownership of a fast-moving project where her drive helps.",
+          "correct": true
+        },
+        {
+          "text": "Ask her to slow down and just follow the existing routine.",
+          "correct": false
+        },
+        {
+          "text": "Put her on a long, detailed, repetitive maintenance task.",
+          "correct": false
+        },
+        {
+          "text": "Tell her to stop making changes without asking everyone first.",
+          "correct": false
+        }
+      ],
+      "whyCorrect": "High Dominance + Low Patience needs an outlet — give her a fast, high-ownership challenge and the steamrolling turns into momentum.",
+      "whyWrongCommon": "Forcing her to slow down and follow routine fights her drives head-on and usually backfires.",
+      "facilitatorPrompt": "Where could a high-drive, fast-moving person on your team be pointed so it's an asset?"
+    },
+    {
+      "id": "s04",
+      "difficulty": "standard",
+      "setting": "Hospital / nursing unit",
+      "situation": "A big workflow change is coming. Sam, usually reliable and calm, has gone quiet and seems anxious about it. How do you bring Sam along?",
+      "clues": [
+        {
+          "plain": "Sam values stability and a steady, predictable pace.",
+          "term": "High Patience"
+        },
+        {
+          "plain": "Sam feels safe with clear rules and knowing exactly what's expected.",
+          "term": "High Formality"
+        }
+      ],
+      "options": [
+        {
+          "text": "Spring the change quickly and ask Sam to just adapt on the fly.",
+          "correct": false
+        },
+        {
+          "text": "Give Sam plenty of notice, a clear step-by-step plan, and time to adjust.",
+          "correct": true
+        },
+        {
+          "text": "Tell Sam to stop worrying — change is good.",
+          "correct": false
+        },
+        {
+          "text": "Make Sam the one to announce the change to everyone else.",
+          "correct": false
+        }
+      ],
+      "whyCorrect": "High Patience needs time and warning; High Formality needs structure and clarity. A clear plan with notice settles both.",
+      "whyWrongCommon": "Springing it on Sam to 'just adapt' hits exactly the two things that create anxiety here.",
+      "facilitatorPrompt": "How does your team usually roll out change — and who needs more lead time than others?"
+    },
+    {
+      "id": "s05",
+      "difficulty": "tricky",
+      "setting": "Marketing agency",
+      "situation": "Jordan is brilliant but won't delegate — taking on everything personally and starting to burn out. The team feels underused. How do you intervene?",
+      "clues": [
+        {
+          "plain": "Jordan wants control and to do things their own way.",
+          "term": "High Dominance"
+        },
+        {
+          "plain": "Jordan is also a perfectionist about getting details exactly right.",
+          "term": "High Formality"
+        },
+        {
+          "plain": "Jordan is reserved and doesn't naturally talk through their workload.",
+          "term": "Low Extraversion"
+        }
+      ],
+      "options": [
+        {
+          "text": "Order Jordan to hand off half their tasks immediately.",
+          "correct": false
+        },
+        {
+          "text": "Privately co-create a clear delegation plan with defined quality standards Jordan helps set.",
+          "correct": true
+        },
+        {
+          "text": "Announce in the team meeting that Jordan needs to delegate more.",
+          "correct": false
+        },
+        {
+          "text": "Leave Jordan alone — they'll ask for help when they need it.",
+          "correct": false
+        }
+      ],
+      "whyCorrect": "The conflict: High Dominance + High Formality means Jordan won't let go unless quality is guaranteed and they keep control of the standards — and Low Extraversion means it has to be private. Co-creating the plan, privately, with Jordan setting the bar, respects all three.",
+      "whyWrongCommon": "Ordering them to hand off tasks ignores the need for control and quality — they'll quietly take the work back.",
+      "facilitatorPrompt": "Is there a 'won't let go' person on your team? What would make it safe for them to delegate?"
+    },
+    {
+      "id": "s06",
+      "difficulty": "tricky",
+      "setting": "Engineering team",
+      "situation": "Two teammates clash constantly: Alex wants to move fast and decide now; Robin wants to slow down and get every detail right. Meetings stall. How do you get them working together?",
+      "clues": [
+        {
+          "plain": "Alex is driven to act fast and push decisions forward.",
+          "term": "High Dominance / Low Patience"
+        },
+        {
+          "plain": "Robin needs accuracy, structure, and time to do it correctly.",
+          "term": "High Formality / High Patience"
+        }
+      ],
+      "options": [
+        {
+          "text": "Pick a side — tell them the company moves fast, so Robin needs to keep up.",
+          "correct": false
+        },
+        {
+          "text": "Give them distinct roles that play to each drive: Alex drives momentum/decisions, Robin owns quality/review — with an agreed handoff.",
+          "correct": true
+        },
+        {
+          "text": "Force them to compromise in the middle on everything.",
+          "correct": false
+        },
+        {
+          "text": "Separate them so they never have to work together.",
+          "correct": false
+        }
+      ],
+      "whyCorrect": "Their drives aren't a flaw — they're complementary. Defining roles so each owns the part that fits them (Alex = momentum, Robin = accuracy) turns the clash into a strength.",
+      "whyWrongCommon": "Splitting the difference frustrates both; picking a side wastes one person's real strength.",
+      "facilitatorPrompt": "Where do opposite working styles on your team actually complement each other if framed right?"
+    },
+    {
+      "id": "s07",
+      "difficulty": "standard",
+      "setting": "Sales team",
+      "situation": "Taylor is warm and persuasive with clients but keeps skipping the CRM admin and follow-up paperwork. It's causing dropped balls. How do you fix it without killing their strength?",
+      "clues": [
+        {
+          "plain": "Taylor thrives on people, talking, and winning others over.",
+          "term": "High Extraversion"
+        },
+        {
+          "plain": "Taylor finds detailed rules and repetitive admin draining.",
+          "term": "Low Formality"
+        }
+      ],
+      "options": [
+        {
+          "text": "Pair Taylor with a detail-oriented teammate (or tool) to handle the admin, and let Taylor focus on relationships.",
+          "correct": true
+        },
+        {
+          "text": "Put Taylor on a strict paperwork-compliance improvement plan.",
+          "correct": false
+        },
+        {
+          "text": "Take Taylor off client work until the admin is caught up.",
+          "correct": false
+        },
+        {
+          "text": "Just keep reminding Taylor to do the paperwork.",
+          "correct": false
+        }
+      ],
+      "whyCorrect": "High Extraversion + Low Formality means admin will always be the weak spot — don't fight it, support it. Pairing or automating the detail work keeps Taylor's real strength (relationships) firing.",
+      "whyWrongCommon": "A compliance plan targets the exact thing their drives resist; it rarely sticks and dents morale.",
+      "facilitatorPrompt": "Whose strengths are you accidentally blocking by making them do their weakest type of work?"
+    },
+    {
+      "id": "s08",
+      "difficulty": "standard",
+      "setting": "Nonprofit / volunteer team",
+      "situation": "Casey is the dependable one who quietly keeps everything running, but never speaks up in meetings and is being overlooked for a lead role. How do you draw Casey out and recognize them?",
+      "clues": [
+        {
+          "plain": "Casey is steady, patient, and supportive — the team's anchor.",
+          "term": "High Patience / Low Dominance"
+        },
+        {
+          "plain": "Casey is reserved and won't self-promote in a group.",
+          "term": "Low Extraversion"
+        }
+      ],
+      "options": [
+        {
+          "text": "Put Casey on the spot in the next meeting to share their accomplishments.",
+          "correct": false
+        },
+        {
+          "text": "Ask for Casey's input privately first, then credit their contributions specifically and visibly to the group.",
+          "correct": true
+        },
+        {
+          "text": "Wait for Casey to step up and ask for the lead role.",
+          "correct": false
+        },
+        {
+          "text": "Give the lead role to someone louder who clearly wants it.",
+          "correct": false
+        }
+      ],
+      "whyCorrect": "Low Extraversion + Low Dominance means Casey won't self-advocate — so you surface their value for them: gather input privately, then give specific public credit. Recognition without forcing the spotlight.",
+      "whyWrongCommon": "Putting Casey on the spot to brag is the opposite of what a reserved person can do in the moment — it freezes them.",
+      "facilitatorPrompt": "Who's the quiet anchor on your team that might be getting overlooked?"
+    },
+    {
+      "id": "s09",
+      "difficulty": "tricky",
+      "setting": "Startup leadership",
+      "situation": "A founder, River, makes fast unilateral calls and resists process — it worked at 5 people but now at 30 the team feels whiplash and out of the loop. How do you help River adapt without crushing the drive that built the company?",
+      "clues": [
+        {
+          "plain": "River is highly independent, decisive, and comfortable with risk.",
+          "term": "High Dominance / Low Formality"
+        },
+        {
+          "plain": "River moves fast and gets impatient with process and routine.",
+          "term": "Low Patience"
+        }
+      ],
+      "options": [
+        {
+          "text": "Tell River to stop deciding things alone and run everything through the team.",
+          "correct": false
+        },
+        {
+          "text": "Keep River as the fast decision-maker but add a lightweight 'here's what I decided and why' broadcast so the team isn't blindsided.",
+          "correct": true
+        },
+        {
+          "text": "Implement a heavy formal approval process for all decisions.",
+          "correct": false
+        },
+        {
+          "text": "Accept the whiplash — it's just how founders are.",
+          "correct": false
+        }
+      ],
+      "whyCorrect": "You don't kill High Dominance/Low Formality/Low Patience by forcing heavy process — you add the lightest possible structure (a quick decision broadcast) that keeps River fast while giving the team visibility.",
+      "whyWrongCommon": "A heavy approval process directly fights every one of River's drives — they'll route around it and resent it."
+    },
+    {
+      "id": "s10",
+      "difficulty": "standard",
+      "setting": "Customer support team",
+      "situation": "New hire Noor is technically sharp but hasn't said a word in three team meetings and seems hesitant to ask questions. The team reads it as disinterest. How do you integrate Noor?",
+      "clues": [
+        {
+          "plain": "Noor is reserved and processes things internally before speaking.",
+          "term": "Low Extraversion"
+        },
+        {
+          "plain": "Noor wants to be sure they're correct before contributing.",
+          "term": "High Formality"
+        }
+      ],
+      "options": [
+        {
+          "text": "Call on Noor unexpectedly in meetings to force participation.",
+          "correct": false
+        },
+        {
+          "text": "Send Noor topics in advance and offer a written or one-on-one channel to contribute.",
+          "correct": true
+        },
+        {
+          "text": "Assume Noor isn't a fit and start looking elsewhere.",
+          "correct": false
+        },
+        {
+          "text": "Tell Noor they need to speak up more if they want to succeed.",
+          "correct": false
+        }
+      ],
+      "whyCorrect": "Low Extraversion + High Formality means Noor contributes best with prep time and a lower-pressure channel — not on-the-spot. Give advance notice and a written option and the insight flows.",
+      "whyWrongCommon": "Cold-calling a reserved, get-it-right person is the fastest way to make them shut down harder.",
+      "facilitatorPrompt": "How could your meetings give prep time so quieter people can contribute their best?"
+    }
+  ]
+}

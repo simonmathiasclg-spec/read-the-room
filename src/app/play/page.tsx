@@ -6,6 +6,7 @@ import PlayerRoster from "@/components/PlayerRoster";
 import SetupNotice from "@/components/SetupNotice";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { CharacterBuilder } from "@/components/character/CharacterBuilder";
+import { DefusePhone } from "@/components/defuse/DefusePhone";
 import { PhoneButtons } from "@/components/quiz/PhoneButtons";
 import { Glyph, TILES } from "@/components/quiz/tiles";
 import { Button, ButtonLink } from "@/components/ui/Button";
@@ -303,6 +304,24 @@ export default function PlayPage() {
     const status = room?.status ?? "lobby";
     const qIndex = room?.questionIndex ?? 0;
     const hasAnswered = answeredIndex === qIndex;
+
+    // Defuse the Pattern is a different in-game experience: each phone shows
+    // its own clue/option card and the pod locks in one answer. The lobby +
+    // join flow stay shared, so only delegate once the game is live.
+    if (
+      room &&
+      room.config.mode === "defuse-the-pattern" &&
+      (status === "question" || status === "reveal" || status === "podium")
+    ) {
+      return (
+        <DefusePhone
+          pin={pin}
+          room={room}
+          playerId={playerId}
+          onLeave={handleLeave}
+        />
+      );
+    }
 
     // Live question, not yet answered: ONLY the four shape buttons (look up!).
     // Prompt up top; buttons anchored to the bottom half so they're thumb-easy.

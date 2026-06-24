@@ -1,10 +1,11 @@
 {
   "version": "0.0.1",
+  "autoPort": true,
   "configurations": [
     {
       "name": "read-the-room",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "--", "--port", "3210"],
+      "runtimeArgs": ["run", "dev"],
       "port": 3210
     }
   ]

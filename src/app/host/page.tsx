@@ -6,11 +6,13 @@ import SetupNotice from "@/components/SetupNotice";
 import { CritterScatter } from "@/components/character/CritterScatter";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { HostQuiz } from "@/components/quiz/HostQuiz";
+import { HostDefuse } from "@/components/defuse/HostDefuse";
 import { Podium } from "@/components/quiz/Podium";
 import { Button } from "@/components/ui/Button";
 import { Segmented } from "@/components/ui/Segmented";
 import { isFirebaseConfigured } from "@/lib/firebase";
 import { pickQuestionIds, type Difficulty } from "@/lib/questions";
+import { pickScenarioIds, startDefuse } from "@/lib/defuse";
 import {
   createRoom,
   startGame,
@@ -26,6 +28,15 @@ const HOST_DIFFICULTY_KEY = "rtr:hostDifficulty";
 
 const QUESTION_COUNTS = [5, 10, 15, 20] as const;
 const SECONDS_PER_Q = [10, 15, 20, 30] as const;
+
+// Defuse the Pattern uses scenario counts + a pace (which maps to the timer).
+const SCENARIO_COUNTS = [3, 5, 8, 10] as const;
+const DEFUSE_PACES = [90, 60] as const; // seconds → "Standard" / "Pressure"
+const DEFUSE_PACE_LABELS: Record<number, string> = {
+  90: "Standard · 90s",
+  60: "Pressure · 60s",
+};
+const DEFUSE_DEFAULTS = { totalQuestions: 5, secondsPerQuestion: 90 } as const;
 const DIFFICULTIES = ["mixed", "rookie", "pro", "practitioner"] as const;
 const DIFFICULTY_LABELS: Record<Difficulty, string> = {
   mixed: "Mixed",
@@ -46,9 +57,9 @@ const MODES: {
   blurb: string;
   active: boolean;
 }[] = [
-  { id: "quiz", name: "Kahoot Quiz", blurb: "Timed multiple-choice PI trivia.", active: true },
+  { id: "quiz", name: "PI Training", blurb: "Timed multiple-choice PI trivia.", active: true },
+  { id: "defuse-the-pattern", name: "Defuse the Pattern", blurb: "Co-op: split the clues, read the drives, defuse it together.", active: true },
   { id: "spot-the-drive", name: "Spot the Drive", blurb: "Read the behavioral drives.", active: false },
-  { id: "defuse-the-pattern", name: "Defuse the Pattern", blurb: "Crack the PI pattern.", active: false },
 ];
 
 export default function HostPage() {
@@ -123,11 +134,20 @@ export default function HostPage() {
     setStarting(true);
     setError(null);
     try {
-      const questionIds = pickQuestionIds(
-        room.config.totalQuestions,
-        difficulty,
-      );
-      await startGame(pin, questionIds);
+      if (room.config.mode === "defuse-the-pattern") {
+        const scenarioIds = pickScenarioIds(room.config.totalQuestions);
+        await startDefuse(
+          pin,
+          scenarioIds,
+          room.players.map((p) => p.id),
+        );
+      } else {
+        const questionIds = pickQuestionIds(
+          room.config.totalQuestions,
+          difficulty,
+        );
+        await startGame(pin, questionIds);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't start the game.");
       setStarting(false);
@@ -170,7 +190,16 @@ export default function HostPage() {
                     type="button"
                     disabled={!m.active}
                     aria-pressed={selected}
-                    onClick={() => m.active && setConfig((c) => ({ ...c, mode: m.id }))}
+                    onClick={() =>
+                      m.active &&
+                      setConfig((c) =>
+                        m.id === "defuse-the-pattern"
+                          ? { ...c, mode: m.id, ...DEFUSE_DEFAULTS }
+                          : m.id === "quiz"
+                            ? { ...c, mode: m.id, totalQuestions: DEFAULT_CONFIG.totalQuestions, secondsPerQuestion: DEFAULT_CONFIG.secondsPerQuestion }
+                            : { ...c, mode: m.id },
+                      )
+                    }
                     className={[
                       "relative rounded-2xl border-2 p-4 text-left transition-all duration-100",
                       "focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-psc-red/40",
@@ -203,39 +232,71 @@ export default function HostPage() {
             </div>
           </div>
 
-          {/* Round options */}
-          <div className="mt-8 flex flex-col gap-7">
-            <div>
-              <Segmented
-                label="Difficulty"
-                name="difficulty"
-                options={DIFFICULTIES}
-                value={difficulty}
-                onChange={handleDifficulty}
-                renderOption={(d) => DIFFICULTY_LABELS[d]}
-              />
-              <p className="mt-2 text-sm text-psc-gray-2">
-                {DIFFICULTY_HINTS[difficulty]}
-              </p>
+          {/* Round options — differ by mode */}
+          {config.mode === "defuse-the-pattern" ? (
+            <div className="mt-8 flex flex-col gap-7">
+              <div>
+                <Segmented
+                  label="Pace"
+                  name="pace"
+                  options={DEFUSE_PACES}
+                  value={config.secondsPerQuestion}
+                  onChange={(v) =>
+                    setConfig((c) => ({ ...c, secondsPerQuestion: v }))
+                  }
+                  renderOption={(s) => DEFUSE_PACE_LABELS[s]}
+                />
+                <p className="mt-2 text-sm text-psc-gray-2">
+                  How long the pod gets to talk it out and lock in each answer.
+                </p>
+              </div>
+              <div>
+                <Segmented
+                  label="Number of scenarios"
+                  name="scenarios"
+                  options={SCENARIO_COUNTS}
+                  value={config.totalQuestions}
+                  onChange={(v) => setConfig((c) => ({ ...c, totalQuestions: v }))}
+                />
+                <p className="mt-2 text-sm text-psc-gray-2">
+                  Always opens with an easy gimme so the pod learns the loop.
+                </p>
+              </div>
             </div>
-            <Segmented
-              label="Number of questions"
-              name="questions"
-              options={QUESTION_COUNTS}
-              value={config.totalQuestions}
-              onChange={(v) => setConfig((c) => ({ ...c, totalQuestions: v }))}
-            />
-            <Segmented
-              label="Seconds per question"
-              name="seconds"
-              options={SECONDS_PER_Q}
-              value={config.secondsPerQuestion}
-              onChange={(v) =>
-                setConfig((c) => ({ ...c, secondsPerQuestion: v }))
-              }
-              renderOption={(s) => `${s}s`}
-            />
-          </div>
+          ) : (
+            <div className="mt-8 flex flex-col gap-7">
+              <div>
+                <Segmented
+                  label="Difficulty"
+                  name="difficulty"
+                  options={DIFFICULTIES}
+                  value={difficulty}
+                  onChange={handleDifficulty}
+                  renderOption={(d) => DIFFICULTY_LABELS[d]}
+                />
+                <p className="mt-2 text-sm text-psc-gray-2">
+                  {DIFFICULTY_HINTS[difficulty]}
+                </p>
+              </div>
+              <Segmented
+                label="Number of questions"
+                name="questions"
+                options={QUESTION_COUNTS}
+                value={config.totalQuestions}
+                onChange={(v) => setConfig((c) => ({ ...c, totalQuestions: v }))}
+              />
+              <Segmented
+                label="Seconds per question"
+                name="seconds"
+                options={SECONDS_PER_Q}
+                value={config.secondsPerQuestion}
+                onChange={(v) =>
+                  setConfig((c) => ({ ...c, secondsPerQuestion: v }))
+                }
+                renderOption={(s) => `${s}s`}
+              />
+            </div>
+          )}
 
           {error && <p className="mt-6 font-semibold text-psc-red">{error}</p>}
 
@@ -264,6 +325,19 @@ export default function HostPage() {
 
   const joinHost = (origin || "this site").replace(/^https?:\/\//, "");
   const joinUrl = origin ? `${origin}/play?pin=${pin}` : "";
+
+  const isDefuse = room.config.mode === "defuse-the-pattern";
+
+  // ===== C. Live game — Defuse the Pattern (situation → resolve → summary)
+  if (
+    isDefuse &&
+    (room.status === "question" ||
+      room.status === "reveal" ||
+      room.status === "podium") &&
+    room.questionIds.length > 0
+  ) {
+    return <HostDefuse pin={pin} room={room} onExit={handleNewRoom} />;
+  }
 
   // ===== C. Live quiz — question + reveal loop ==========================
   // Require questionIds so a stale/half-written room can't dead-end the host;
