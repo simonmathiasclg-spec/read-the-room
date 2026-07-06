@@ -13,6 +13,7 @@ import { Segmented } from "@/components/ui/Segmented";
 import { isFirebaseConfigured } from "@/lib/firebase";
 import { pickQuestionIds, type Difficulty } from "@/lib/questions";
 import { pickScenarioIds, startDefuse } from "@/lib/defuse";
+import { stingIfPlaying } from "@/lib/hostMusic";
 import {
   createRoom,
   startGame,
@@ -114,6 +115,15 @@ export default function HostPage() {
       unsubscribe.current = null;
     };
   }, [pin]);
+
+  // Celebratory sting when the podium first appears (no-op unless music is on).
+  const prevStatus = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (room?.status === "podium" && prevStatus.current !== "podium") {
+      stingIfPlaying();
+    }
+    prevStatus.current = room?.status;
+  }, [room?.status]);
 
   const handleCreate = useCallback(async () => {
     setCreating(true);

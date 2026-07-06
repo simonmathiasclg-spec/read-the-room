@@ -158,6 +158,21 @@ body {
   transform: skewX(-12deg);
 }
 
+/* Music toggle "now playing" equalizer bars */
+.music-eq-bar {
+  transform-origin: bottom;
+  animation: music-eq 0.9s ease-in-out infinite;
+}
+@keyframes music-eq {
+  0%,
+  100% {
+    transform: scaleY(0.3);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
 /* ============================================================
    Accessibility — honor reduced motion
    ============================================================ */
