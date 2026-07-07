@@ -1,23 +1,116 @@
 import bank from "@/data/question-bank.json";
+import pack from "@/data/question-pack.json";
 
 export type Tier = "rookie" | "pro" | "practitioner";
 
-export type Question = {
+/** Question kinds this build knows how to render + score. */
+export type QuestionType = "mc" | "tf" | "graph";
+
+type QuestionBase = {
   id: string;
   tier: Tier;
   topic: string;
   q: string;
-  options: [string, string, string, string];
-  answer: number; // 0–3, index of the correct option
   teach: string;
 };
 
-export const QUESTION_BANK = (bank.questions as Question[]) ?? [];
+/** Classic multiple choice (the original type). `style` is a harmless flavor
+ *  hint on some items — spot-the-drive / odd-one-out / best-move / etc. */
+export type McQuestion = QuestionBase & {
+  type: "mc";
+  style?: string;
+  options: [string, string, string, string];
+  answer: number; // 0–3
+};
+
+/** True/False — rendered as two big tiles; scored exactly like mc. */
+export type TfQuestion = QuestionBase & {
+  type: "tf";
+  answer: boolean;
+};
+
+/** Read-the-pattern: host draws the A/B/C/D pattern, then asks an mc question. */
+export type GraphPattern = { A: number; B: number; C: number; D: number };
+export type GraphQuestion = QuestionBase & {
+  type: "graph";
+  pattern: GraphPattern;
+  options: [string, string, string, string];
+  answer: number; // 0–3
+};
+
+export type Question = McQuestion | TfQuestion | GraphQuestion;
+
+const SUPPORTED: ReadonlySet<string> = new Set<QuestionType>([
+  "mc",
+  "tf",
+  "graph",
+]);
+
+/**
+ * Merge the base bank (untyped legacy = "mc") with the types pack, normalize the
+ * `type` field, and drop any kinds this build can't render yet (e.g. slider /
+ * order, which would need a new answer field + a Firebase rules change).
+ */
+function loadQuestions(): Question[] {
+  const raw = [
+    ...(bank.questions as unknown[]),
+    ...(pack.questions as unknown[]),
+  ];
+  const out: Question[] = [];
+  for (const item of raw) {
+    const q = item as Record<string, unknown>;
+    const type = (q.type as string) ?? "mc"; // legacy items have no type
+    if (!SUPPORTED.has(type)) continue;
+    out.push({ ...q, type } as Question);
+  }
+  return out;
+}
+
+export const QUESTION_BANK: Question[] = loadQuestions();
 
 const BY_ID = new Map(QUESTION_BANK.map((q) => [q.id, q]));
 
 export function questionById(id: string): Question | undefined {
   return BY_ID.get(id);
+}
+
+/** How many answer tiles a question shows (TF is a 2-way; the rest are 4-way). */
+export function optionCountFor(q: Question): number {
+  return q.type === "tf" ? 2 : 4;
+}
+
+/**
+ * The original option index of the correct answer, in a form the shared
+ * position-shuffle can place. For TF, option 0 = TRUE and option 1 = FALSE.
+ */
+export function correctOptionIndex(q: Question): number {
+  if (q.type === "tf") return q.answer ? 0 : 1;
+  return q.answer;
+}
+
+/**
+ * Deterministic per-question tile order shared by the host big screen and every
+ * phone, so the correct answer lands in a varying position but all clients
+ * agree. Seeded by question id + room pin. `order[tileIndex] = optionIndex`.
+ */
+export function optionOrder(seed: string, count: number): number[] {
+  let h = 2166136261;
+  for (let i = 0; i < seed.length; i++) {
+    h ^= seed.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  const rng = () => {
+    h = (h + 0x6d2b79f5) | 0;
+    let t = Math.imul(h ^ (h >>> 15), 1 | h);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  const order = Array.from({ length: count }, (_, i) => i);
+  for (let i = order.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [order[i], order[j]] = [order[j], order[i]];
+  }
+  return order;
 }
 
 /** "mixed" blends all tiers; otherwise the round is a single tier. */
@@ -36,7 +129,8 @@ function shuffle<T>(items: T[]): T[] {
 }
 
 /**
- * Pick `count` question ids for a round, filtered by difficulty.
+ * Pick `count` question ids for a round, filtered by difficulty. Draws from the
+ * whole merged bank, so a round naturally mixes mc / tf / graph.
  *
  * - A single tier ("rookie" | "pro" | "practitioner") draws only that tier.
  * - "mixed" deliberately spreads across tiers via round-robin, so the blend is

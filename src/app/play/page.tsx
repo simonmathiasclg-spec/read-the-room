@@ -8,9 +8,11 @@ import { Wordmark } from "@/components/brand/Wordmark";
 import { CharacterBuilder } from "@/components/character/CharacterBuilder";
 import { DefusePhone } from "@/components/defuse/DefusePhone";
 import { PhoneButtons } from "@/components/quiz/PhoneButtons";
+import { PhoneTrueFalse } from "@/components/quiz/PhoneTrueFalse";
 import { Glyph, TILES } from "@/components/quiz/tiles";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { makeDefaultCharacter, type Character } from "@/lib/character";
+import { optionOrder, questionById } from "@/lib/questions";
 import { isFirebaseConfigured } from "@/lib/firebase";
 import {
   joinRoom,
@@ -323,9 +325,14 @@ export default function PlayPage() {
       );
     }
 
-    // Live question, not yet answered: ONLY the four shape buttons (look up!).
-    // Prompt up top; buttons anchored to the bottom half so they're thumb-easy.
+    // Live question, not yet answered. Prompt up top; the answer input is
+    // anchored to the bottom half so it's thumb-easy. TF shows two big
+    // TRUE/FALSE buttons (shuffled to match the host); everything else shows the
+    // four shape buttons (look up at the big screen to map shape → option).
     if (status === "question" && !hasAnswered) {
+      const qId = room?.questionIds[qIndex] ?? "";
+      const isTF = questionById(qId)?.type === "tf";
+      const tfOrder = isTF ? optionOrder(`${qId}:${pin}`, 2) : null;
       return (
         <main className="flex flex-1 flex-col bg-psc-ink p-4">
           <div className="flex flex-[0.72] flex-col items-center justify-center px-4 text-center">
@@ -336,19 +343,30 @@ export default function PlayPage() {
               Look up at the screen
             </p>
             <p className="mt-1 text-base text-white/55">
-              then pick your answer below
+              {isTF ? "read the statement, then tap" : "then pick your answer below"}
             </p>
           </div>
           <div className="min-h-0 flex-1">
-            <PhoneButtons onPick={handlePick} />
+            {tfOrder ? (
+              <PhoneTrueFalse order={tfOrder} onPick={handlePick} />
+            ) : (
+              <PhoneButtons onPick={handlePick} />
+            )}
           </div>
         </main>
       );
     }
 
-    // Answered — show the chosen tile and hold.
+    // Answered — show the chosen answer and hold.
     if (status === "question" && hasAnswered) {
-      const tile = answeredChoice !== null ? TILES[answeredChoice] : null;
+      const qId = room?.questionIds[qIndex] ?? "";
+      const isTF = questionById(qId)?.type === "tf";
+      const tile =
+        !isTF && answeredChoice !== null ? TILES[answeredChoice] : null;
+      const pickedTrue =
+        isTF && answeredChoice !== null
+          ? optionOrder(`${qId}:${pin}`, 2)[answeredChoice] === 0
+          : null;
       return (
         <main
           className="flex flex-1 flex-col items-center justify-center gap-6 bg-psc-ink px-6 text-center text-white"
@@ -360,6 +378,16 @@ export default function PlayPage() {
               className="flex size-28 items-center justify-center rounded-3xl shadow-[0_8px_0_rgba(0,0,0,0.3)]"
             >
               <Glyph kind={tile.kind} fill={tile.ink} className="size-1/2" />
+            </div>
+          )}
+          {pickedTrue !== null && (
+            <div
+              style={{
+                backgroundColor: pickedTrue ? "var(--tile-c)" : "var(--tile-a)",
+              }}
+              className="flex h-24 items-center justify-center rounded-3xl px-10 font-display text-4xl font-black shadow-[0_8px_0_rgba(0,0,0,0.3)]"
+            >
+              {pickedTrue ? "TRUE" : "FALSE"}
             </div>
           )}
           <div>
