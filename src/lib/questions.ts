@@ -4,7 +4,7 @@ import pack from "@/data/question-pack.json";
 export type Tier = "rookie" | "pro" | "practitioner";
 
 /** Question kinds this build knows how to render + score. */
-export type QuestionType = "mc" | "tf" | "graph";
+export type QuestionType = "mc" | "tf" | "graph" | "slider" | "order";
 
 type QuestionBase = {
   id: string;
@@ -38,12 +38,39 @@ export type GraphQuestion = QuestionBase & {
   answer: number; // 0–3
 };
 
-export type Question = McQuestion | TfQuestion | GraphQuestion;
+/** Slider "build the profile": drag each factor on a Low↔High 0–100 scale. */
+export type SliderFactor = {
+  key: "A" | "B" | "C" | "D";
+  label: string;
+  target: number; // 0–100
+  low: string;
+  high: string;
+};
+export type SliderQuestion = QuestionBase & {
+  type: "slider";
+  factors: SliderFactor[];
+  tolerance: number; // full credit within ± this many points of target
+};
+
+/** Order "put in sequence": items are stored IN CORRECT ORDER; shown shuffled. */
+export type OrderQuestion = QuestionBase & {
+  type: "order";
+  items: string[];
+};
+
+export type Question =
+  | McQuestion
+  | TfQuestion
+  | GraphQuestion
+  | SliderQuestion
+  | OrderQuestion;
 
 const SUPPORTED: ReadonlySet<string> = new Set<QuestionType>([
   "mc",
   "tf",
   "graph",
+  "slider",
+  "order",
 ]);
 
 /**
@@ -85,7 +112,8 @@ export function optionCountFor(q: Question): number {
  */
 export function correctOptionIndex(q: Question): number {
   if (q.type === "tf") return q.answer ? 0 : 1;
-  return q.answer;
+  if (q.type === "mc" || q.type === "graph") return q.answer;
+  return 0; // slider/order don't use tile positions
 }
 
 /**
@@ -111,6 +139,50 @@ export function optionOrder(seed: string, count: number): number[] {
     [order[i], order[j]] = [order[j], order[i]];
   }
   return order;
+}
+
+// ----- Closeness scoring for the interactive types -----------------------
+
+/**
+ * Per-factor slider credit: full (1) within ±tolerance of the target, then
+ * scaling linearly to 0 at the far end of the 0–100 scale. Pure + testable.
+ */
+export function sliderPerFactor(
+  placed: number,
+  target: number,
+  tolerance: number,
+): number {
+  const d = Math.abs(placed - target);
+  if (d <= tolerance) return 1;
+  const maxDist = Math.max(target, 100 - target);
+  if (maxDist <= tolerance) return 1;
+  return Math.max(0, 1 - (d - tolerance) / (maxDist - tolerance));
+}
+
+/** Average per-factor credit across a placement (0–1). */
+export function sliderCloseness(
+  placement: number[],
+  targets: number[],
+  tolerance: number,
+): number {
+  if (targets.length === 0) return 0;
+  let sum = 0;
+  for (let i = 0; i < targets.length; i++) {
+    sum += sliderPerFactor(placement[i] ?? 0, targets[i], tolerance);
+  }
+  return sum / targets.length;
+}
+
+/**
+ * Order closeness: fraction of items in their correct position. The submitted
+ * `order[position] = originalItemIndex`, and items are stored in correct order,
+ * so a position is right when `order[i] === i` (0–1).
+ */
+export function orderCloseness(order: number[], count: number): number {
+  if (count === 0) return 0;
+  let correct = 0;
+  for (let i = 0; i < count; i++) if (order[i] === i) correct++;
+  return correct / count;
 }
 
 /** "mixed" blends all tiers; otherwise the round is a single tier. */

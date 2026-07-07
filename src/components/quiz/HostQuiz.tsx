@@ -13,14 +13,25 @@ import {
   nextQuestion,
   scoreAndReveal,
   subscribeAnswerCount,
+  subscribeAnswers,
   subscribeResults,
+  type AnswerRecord,
   type QuestionResult,
   type Room,
+  type Scoring,
 } from "@/lib/room";
 import { Countdown } from "./Countdown";
 import { Leaderboard } from "./Leaderboard";
 import { PatternGraph } from "./PatternGraph";
+import { SliderReveal } from "./SliderReveal";
 import { Glyph, TILES } from "./tiles";
+
+const FACTOR_COLOR: Record<"A" | "B" | "C" | "D", string> = {
+  A: "var(--tile-a)",
+  B: "var(--tile-b)",
+  C: "var(--tile-c)",
+  D: "var(--tile-d)",
+};
 
 export function HostQuiz({ pin, room }: { pin: string; room: Room }) {
   const { status, questionIndex, config, players } = room;
@@ -63,12 +74,19 @@ export function HostQuiz({ pin, room }: { pin: string; room: Room }) {
     if (status !== "question" || !question) return;
     if (revealedFor.current === questionIndex) return;
     revealedFor.current = questionIndex;
-    void scoreAndReveal(
-      pin,
-      questionIndex,
-      correctPos,
-      config.secondsPerQuestion,
-    );
+    let scoring: Scoring;
+    if (question.type === "slider") {
+      scoring = {
+        kind: "slider",
+        targets: question.factors.map((f) => f.target),
+        tolerance: question.tolerance,
+      };
+    } else if (question.type === "order") {
+      scoring = { kind: "order", count: question.items.length };
+    } else {
+      scoring = { kind: "choice", correctIndex: correctPos };
+    }
+    void scoreAndReveal(pin, questionIndex, scoring, config.secondsPerQuestion);
   }, [pin, status, questionIndex, question, correctPos, config.secondsPerQuestion]);
 
   // Live answer count (during the question), tagged with its question index.
@@ -84,6 +102,15 @@ export function HostQuiz({ pin, room }: { pin: string; room: Room }) {
     if (status !== "reveal") return;
     return subscribeResults(pin, questionIndex, setResults);
   }, [pin, status, questionIndex]);
+
+  // Raw answers, only needed to show where the room placed on a slider reveal.
+  const [answerRecords, setAnswerRecords] = useState<
+    Record<string, AnswerRecord>
+  >({});
+  useEffect(() => {
+    if (status !== "reveal" || question?.type !== "slider") return;
+    return subscribeAnswers(pin, questionIndex, setAnswerRecords);
+  }, [pin, status, questionIndex, question?.type]);
 
   // Per-question countdown. Host-authoritative, driven by local time.
   useEffect(() => {
@@ -239,6 +266,81 @@ export function HostQuiz({ pin, room }: { pin: string; room: Room }) {
               </div>
             );
           })}
+        </div>
+      ) : question.type === "slider" ? (
+        // Slider — host shows blank continua while phones build, then the target
+        // zone vs. where the room placed on reveal.
+        <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col items-center justify-center gap-5">
+          {isReveal ? (
+            <SliderReveal
+              factors={question.factors}
+              tolerance={question.tolerance}
+              placements={Object.values(answerRecords)
+                .map((a) => a.placement)
+                .filter((p): p is number[] => Array.isArray(p))}
+            />
+          ) : (
+            <>
+              <div className="mx-auto w-full max-w-2xl space-y-3 rounded-3xl bg-white/[0.04] px-4 py-4 ring-1 ring-white/10 sm:space-y-4 sm:px-7 sm:py-5">
+                {question.factors.map((f) => (
+                  <div
+                    key={f.key}
+                    className="grid grid-cols-[1.4rem_5rem_1fr_5rem] items-center gap-2 sm:grid-cols-[1.75rem_7rem_1fr_7rem] sm:gap-3"
+                  >
+                    <span
+                      className="flex size-5 items-center justify-center rounded-md font-display text-xs font-black text-white sm:size-7 sm:text-sm"
+                      style={{ backgroundColor: FACTOR_COLOR[f.key] }}
+                      aria-hidden
+                    >
+                      {f.key}
+                    </span>
+                    <span className="text-right text-[0.7rem] font-semibold leading-tight text-white/55 sm:text-sm">
+                      {f.low}
+                    </span>
+                    <div className="h-3 rounded-full bg-white/12" />
+                    <span className="text-left text-[0.7rem] font-semibold leading-tight text-white/55 sm:text-sm">
+                      {f.high}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <p className="text-lg text-white/55">
+                📱 Everyone&apos;s building the profile on their phones…
+              </p>
+            </>
+          )}
+        </div>
+      ) : question.type === "order" ? (
+        // Order — host hides the items while phones arrange, then shows the
+        // correct sequence on reveal.
+        <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col justify-center">
+          {isReveal ? (
+            <ol className="space-y-2.5">
+              {question.items.map((it, i) => (
+                <li
+                  key={i}
+                  className="flex items-center gap-3 rounded-2xl bg-white/[0.06] px-4 py-3 ring-1 ring-white/10"
+                >
+                  <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-psc-gold font-display text-base font-black text-psc-black sm:size-9 sm:text-lg">
+                    {i + 1}
+                  </span>
+                  <span className="text-base font-semibold text-white sm:text-xl">
+                    {it}
+                  </span>
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <div className="text-center">
+              <p className="mb-3 text-6xl" aria-hidden>
+                📱
+              </p>
+              <p className="font-display text-2xl font-extrabold text-white">
+                Drag the {question.items.length} cards into order
+              </p>
+              <p className="mt-1 text-white/50">on your phones</p>
+            </div>
+          )}
         </div>
       ) : (
         <div className="mx-auto grid w-full max-w-5xl flex-1 grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">

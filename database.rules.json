@@ -60,8 +60,16 @@
         "answers": {
           "$qIndex": {
             "$playerId": {
-              ".validate": "newData.hasChildren(['choice'])",
+              ".validate": "newData.hasChildren(['choice']) || newData.hasChildren(['placement']) || newData.hasChildren(['order'])",
               "choice": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 3" },
+              "placement": {
+                ".validate": "newData.hasChildren()",
+                "$i": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100" }
+              },
+              "order": {
+                ".validate": "newData.hasChildren()",
+                "$i": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 20" }
+              },
               "answeredAt": { ".validate": "newData.isNumber()" },
               "$other": { ".validate": false }
             }

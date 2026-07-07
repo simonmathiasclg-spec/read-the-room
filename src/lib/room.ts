@@ -8,6 +8,7 @@ import {
 } from "firebase/database";
 import { getDb } from "./firebase";
 import type { Character } from "./character";
+import { orderCloseness, sliderCloseness } from "./questions";
 
 export type RoomStatus = "lobby" | "question" | "reveal" | "podium";
 
@@ -157,7 +158,7 @@ export async function startGame(
   });
 }
 
-/** A player locks in their answer for the current question. */
+/** A player locks in a tile answer (mc / tf / graph) for the current question. */
 export async function submitAnswer(
   pin: string,
   questionIndex: number,
@@ -170,7 +171,53 @@ export async function submitAnswer(
   });
 }
 
-type AnswerRecord = { choice: number; answeredAt: number };
+/** A player submits a slider placement (one 0–100 value per factor). */
+export async function submitPlacement(
+  pin: string,
+  questionIndex: number,
+  playerId: string,
+  placement: number[],
+): Promise<void> {
+  await set(ref(getDb(), `rooms/${pin}/answers/${questionIndex}/${playerId}`), {
+    placement,
+    answeredAt: serverTimestamp(),
+  });
+}
+
+/** A player submits an ordering (`order[position] = original item index`). */
+export async function submitOrder(
+  pin: string,
+  questionIndex: number,
+  playerId: string,
+  order: number[],
+): Promise<void> {
+  await set(ref(getDb(), `rooms/${pin}/answers/${questionIndex}/${playerId}`), {
+    order,
+    answeredAt: serverTimestamp(),
+  });
+}
+
+export type AnswerRecord = {
+  choice?: number;
+  placement?: number[];
+  order?: number[];
+  answeredAt: number;
+};
+
+/**
+ * How the host should score a question at reveal:
+ * - choice  → mc / tf / graph (tap the correct tile position)
+ * - slider  → closeness of the placement to each factor's target
+ * - order   → fraction of items in the correct position
+ */
+export type Scoring =
+  | { kind: "choice"; correctIndex: number }
+  | { kind: "slider"; targets: number[]; tolerance: number }
+  | { kind: "order"; count: number };
+
+// A slider/order answer counts as "correct" (green flash + streak) at or above
+// this closeness; partial credit is still awarded below it.
+const CORRECT_THRESHOLD = 0.6;
 
 /**
  * Compute the points for a single answer (host-authoritative scoring).
@@ -194,11 +241,14 @@ export function scoreAnswer(
  * Host reveals the current question AND scores it in one atomic write:
  * updates each player's cumulative score + streak, records per-player results,
  * and flips the room to "reveal".
+ *
+ * Tile questions (mc/tf/graph) are all-or-nothing; slider/order award partial
+ * credit by closeness. Both then get the same speed + streak treatment.
  */
 export async function scoreAndReveal(
   pin: string,
   questionIndex: number,
-  correctIndex: number,
+  scoring: Scoring,
   secondsPerQuestion: number,
 ): Promise<void> {
   const db = getDb();
@@ -220,15 +270,42 @@ export async function scoreAndReveal(
 
   for (const [pid, p] of Object.entries(players)) {
     const ans = answers[pid];
-    const correct = !!ans && ans.choice === correctIndex;
+
+    // quality in [0,1]: 1/0 for tile questions, closeness for slider/order.
+    let quality = 0;
+    if (ans) {
+      if (scoring.kind === "choice") {
+        quality = ans.choice === scoring.correctIndex ? 1 : 0;
+      } else if (scoring.kind === "slider" && ans.placement) {
+        quality = sliderCloseness(ans.placement, scoring.targets, scoring.tolerance);
+      } else if (scoring.kind === "order" && ans.order) {
+        quality = orderCloseness(ans.order, scoring.count);
+      }
+    }
+
+    const correct =
+      scoring.kind === "choice" ? quality === 1 : quality >= CORRECT_THRESHOLD;
 
     let timeLeft = 0;
-    if (correct && typeof ans.answeredAt === "number" && startedAt) {
+    if (quality > 0 && ans && typeof ans.answeredAt === "number" && startedAt) {
       const elapsed = (ans.answeredAt - startedAt) / 1000;
       timeLeft = Math.max(0, secondsPerQuestion - elapsed);
     }
     const newStreak = correct ? (p.streak ?? 0) + 1 : 0;
-    const points = scoreAnswer(correct, newStreak, secondsPerQuestion, timeLeft);
+
+    let points: number;
+    if (scoring.kind === "choice") {
+      points = scoreAnswer(correct, newStreak, secondsPerQuestion, timeLeft);
+    } else {
+      // Closeness scales the base; speed + streak apply as usual.
+      const frac =
+        secondsPerQuestion > 0
+          ? Math.max(0, Math.min(1, timeLeft / secondsPerQuestion))
+          : 0;
+      const base = 500 + 500 * frac;
+      const streakBonus = correct ? Math.max(0, newStreak - 1) * 100 : 0;
+      points = Math.round(quality * base) + streakBonus;
+    }
 
     updates[`players/${pid}/score`] = (p.score ?? 0) + points;
     updates[`players/${pid}/streak`] = newStreak;
@@ -284,6 +361,18 @@ export function subscribeResults(
     onChange(
       snap.exists() ? (snap.val() as Record<string, QuestionResult>) : {},
     );
+  });
+}
+
+/** Host reads the raw answers for a question (to show where people placed). */
+export function subscribeAnswers(
+  pin: string,
+  questionIndex: number,
+  onChange: (answers: Record<string, AnswerRecord>) => void,
+): () => void {
+  const answersRef = ref(getDb(), `rooms/${pin}/answers/${questionIndex}`);
+  return onValue(answersRef, (snap) => {
+    onChange(snap.exists() ? (snap.val() as Record<string, AnswerRecord>) : {});
   });
 }
 

@@ -8,6 +8,8 @@ import { Wordmark } from "@/components/brand/Wordmark";
 import { CharacterBuilder } from "@/components/character/CharacterBuilder";
 import { DefusePhone } from "@/components/defuse/DefusePhone";
 import { PhoneButtons } from "@/components/quiz/PhoneButtons";
+import { PhoneOrder } from "@/components/quiz/PhoneOrder";
+import { PhoneSlider } from "@/components/quiz/PhoneSlider";
 import { PhoneTrueFalse } from "@/components/quiz/PhoneTrueFalse";
 import { Glyph, TILES } from "@/components/quiz/tiles";
 import { Button, ButtonLink } from "@/components/ui/Button";
@@ -19,6 +21,8 @@ import {
   rankPlayers,
   roomExists,
   submitAnswer,
+  submitOrder,
+  submitPlacement,
   subscribeResult,
   subscribeRoom,
   updateCharacter,
@@ -29,6 +33,13 @@ import {
 const PLAYER_ID_KEY = "rtr:playerId";
 const SESSION_KEY = "rtr:session";
 
+/** Per-player shuffled display order for an "order" question. Avoids handing the
+ *  player the already-correct sequence (rotates if the shuffle came out sorted). */
+function orderDisplay(seed: string, n: number): number[] {
+  const perm = optionOrder(seed, n);
+  return perm.every((v, i) => v === i) ? [...perm.slice(1), perm[0]] : perm;
+}
+
 /** 1 → "1st", 2 → "2nd", … */
 function ordinal(n: number): string {
   const s = ["th", "st", "nd", "rd"];
@@ -36,13 +47,22 @@ function ordinal(n: number): string {
   return `${n}${s[(v - 20) % 10] ?? s[v] ?? s[0]}`;
 }
 
-/** High-contrast right/wrong badge: a white disc with a colored check/cross,
- *  so it reads clearly on the green/red flash (never same-color-on-same-color). */
-function ResultBadge({ correct }: { correct: boolean }) {
+type Tone = "good" | "mid" | "bad";
+
+/** High-contrast result badge: a white disc with a colored mark, so it reads
+ *  clearly on the flash. "mid" = partial credit on a slider/order answer. */
+function ResultBadge({ tone }: { tone: Tone }) {
+  const stroke =
+    tone === "good"
+      ? "var(--tile-c)"
+      : tone === "mid"
+        ? "var(--psc-gold)"
+        : "var(--psc-red)";
+  const showCheck = tone !== "bad";
   return (
     <span className="relative inline-flex">
-      {/* Celebratory pulse ring on a correct answer. */}
-      {correct && (
+      {/* Celebratory pulse ring on a fully-correct answer. */}
+      {tone === "good" && (
         <motion.span
           aria-hidden
           className="pointer-events-none absolute inset-0 rounded-full border-[3px] border-white/70"
@@ -52,12 +72,12 @@ function ResultBadge({ correct }: { correct: boolean }) {
         />
       )}
       <motion.span
-        initial={{ scale: 0, rotate: correct ? -25 : 0 }}
+        initial={{ scale: 0, rotate: tone === "good" ? -25 : 0 }}
         animate={{ scale: 1, rotate: 0 }}
         transition={{
           type: "spring",
-          stiffness: correct ? 380 : 300,
-          damping: correct ? 11 : 18,
+          stiffness: tone === "good" ? 380 : 300,
+          damping: tone === "good" ? 11 : 18,
         }}
         className="flex size-24 items-center justify-center rounded-full bg-white shadow-[0_8px_24px_rgba(0,0,0,0.25)] sm:size-28"
       >
@@ -65,13 +85,13 @@ function ResultBadge({ correct }: { correct: boolean }) {
           viewBox="0 0 24 24"
           className="size-11 sm:size-14"
           fill="none"
-          stroke={correct ? "var(--tile-c)" : "var(--psc-red)"}
+          stroke={stroke}
           strokeWidth="4"
           strokeLinecap="round"
           strokeLinejoin="round"
           aria-hidden
         >
-          {correct ? (
+          {showCheck ? (
             <path d="M5 13l4 4L19 7" />
           ) : (
             <path d="M6 6l12 12M18 6L6 18" />
@@ -299,6 +319,28 @@ export default function PlayPage() {
     [room, pin, playerId],
   );
 
+  const handleSubmitPlacement = useCallback(
+    (placement: number[]) => {
+      if (!room || room.status !== "question") return;
+      const qi = room.questionIndex;
+      setAnsweredChoice(null); // interactive types have no tile
+      setAnsweredIndex(qi);
+      void submitPlacement(pin, qi, playerId, placement);
+    },
+    [room, pin, playerId],
+  );
+
+  const handleSubmitOrder = useCallback(
+    (order: number[]) => {
+      if (!room || room.status !== "question") return;
+      const qi = room.questionIndex;
+      setAnsweredChoice(null);
+      setAnsweredIndex(qi);
+      void submitOrder(pin, qi, playerId, order);
+    },
+    [room, pin, playerId],
+  );
+
   if (!isFirebaseConfigured) return <SetupNotice />;
 
   // ---- Joined: lobby → question → reveal → podium ----------------------
@@ -331,7 +373,34 @@ export default function PlayPage() {
     // four shape buttons (look up at the big screen to map shape → option).
     if (status === "question" && !hasAnswered) {
       const qId = room?.questionIds[qIndex] ?? "";
-      const isTF = questionById(qId)?.type === "tf";
+      const q = questionById(qId);
+
+      // Interactive types own the whole phone: question + control + submit.
+      if (q?.type === "slider") {
+        return (
+          <main className="flex flex-1 flex-col bg-psc-ink p-4">
+            <PhoneSlider
+              prompt={q.q}
+              factors={q.factors}
+              onSubmit={handleSubmitPlacement}
+            />
+          </main>
+        );
+      }
+      if (q?.type === "order") {
+        return (
+          <main className="flex flex-1 flex-col bg-psc-ink p-4">
+            <PhoneOrder
+              prompt={q.q}
+              items={q.items}
+              initialOrder={orderDisplay(`${qId}:${playerId}`, q.items.length)}
+              onSubmit={handleSubmitOrder}
+            />
+          </main>
+        );
+      }
+
+      const isTF = q?.type === "tf";
       const tfOrder = isTF ? optionOrder(`${qId}:${pin}`, 2) : null;
       return (
         <main className="flex flex-1 flex-col bg-psc-ink p-4">
@@ -418,27 +487,33 @@ export default function PlayPage() {
       const myRank = ranked.findIndex((p) => p.id === playerId) + 1;
       const me = ranked.find((p) => p.id === playerId);
       const streak = me?.streak ?? 0;
+      // Partial credit (slider/order): not "correct" but still earned points.
+      const tone: Tone = result.correct
+        ? "good"
+        : result.points > 0
+          ? "mid"
+          : "bad";
+      const bg =
+        tone === "good"
+          ? undefined
+          : tone === "mid"
+            ? "radial-gradient(circle at 50% 38%, #FFC24B 0%, #F5A800 72%)"
+            : "radial-gradient(circle at 50% 38%, #FF2731 0%, #ED1C24 70%)";
       return (
         <main
           className={`flex flex-1 flex-col items-center justify-center px-6 text-center text-white ${
-            result.correct ? "bg-tile-c" : ""
+            tone === "good" ? "bg-tile-c" : ""
           }`}
           style={{
             animation: "var(--animate-pop)",
-            // Punchy, high-energy brand red (brighter in the centre) for "wrong".
-            ...(result.correct
-              ? {}
-              : {
-                  background:
-                    "radial-gradient(circle at 50% 38%, #FF2731 0%, #ED1C24 70%)",
-                }),
+            ...(bg ? { background: bg } : {}),
           }}
         >
-          <ResultBadge correct={result.correct} />
+          <ResultBadge tone={tone} />
           <h1 className="mt-5 font-display text-5xl font-black sm:text-6xl">
-            {result.correct ? "Correct!" : "Too bad"}
+            {tone === "good" ? "Correct!" : tone === "mid" ? "So close!" : "Too bad"}
           </h1>
-          {result.correct && (
+          {result.points > 0 && (
             <p className="mt-1 font-display text-3xl font-black">
               +{result.points.toLocaleString()}
             </p>
