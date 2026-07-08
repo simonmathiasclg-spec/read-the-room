@@ -188,8 +188,6 @@ export function orderCloseness(order: number[], count: number): number {
 /** "mixed" blends all tiers; otherwise the round is a single tier. */
 export type Difficulty = "mixed" | Tier;
 
-const TIER_ORDER: Tier[] = ["rookie", "pro", "practitioner"];
-
 /** Fisher–Yates shuffle (Math.random is fine in app runtime). */
 function shuffle<T>(items: T[]): T[] {
   const a = [...items];
@@ -200,42 +198,115 @@ function shuffle<T>(items: T[]): T[] {
   return a;
 }
 
+/** Interactive / visual types — sprinkled in (one-ish each) rather than used as
+ *  the backbone, both for pacing and because the bank holds few of them. */
+const SPECIAL_TYPES: ReadonlySet<string> = new Set(["graph", "slider", "order"]);
+
+/** Greedy reorder so the same question TYPE never sits back-to-back when that's
+ *  possible: always place the most-plentiful remaining type that isn't the one
+ *  just played. */
+function spaceOutTypes(items: Question[]): Question[] {
+  const buckets: Record<string, Question[]> = {};
+  for (const q of items) (buckets[q.type] ??= []).push(q);
+  const out: Question[] = [];
+  let last = "";
+  for (let k = 0; k < items.length; k++) {
+    let best: string | null = null;
+    for (const t of shuffle(Object.keys(buckets))) {
+      if (buckets[t].length === 0 || t === last) continue;
+      if (best === null || buckets[t].length > buckets[best].length) best = t;
+    }
+    // Only the just-played type is left → unavoidable; take whatever remains.
+    if (best === null)
+      best = Object.keys(buckets).find((t) => buckets[t].length > 0) ?? null;
+    if (best === null) break;
+    out.push(buckets[best].shift()!);
+    last = best;
+  }
+  return out;
+}
+
 /**
- * Pick `count` question ids for a round, filtered by difficulty. Draws from the
- * whole merged bank, so a round naturally mixes mc / tf / graph.
+ * Pick `count` question ids for a round. Beyond "distinct & random", the round:
  *
- * - A single tier ("rookie" | "pro" | "practitioner") draws only that tier.
- * - "mixed" deliberately spreads across tiers via round-robin, so the blend is
- *   balanced (never accidentally all-easy) even for small rounds. The chosen
- *   set is then shuffled so the play order isn't a predictable easy→hard ramp.
+ * - TYPE VARIETY: a coverage pass takes one of every available type
+ *   (mc/tf/graph/slider/order) first, so none is ever missing. The rest is
+ *   filled — mc/tf stay the backbone since the bank holds more of them, while
+ *   the interactive/visual types are capped low so they stay a sprinkle.
+ * - TIER SPREAD: every pick chooses the least-used tier so far, so a "mixed"
+ *   round stays balanced across rookie/pro/practitioner instead of clustering.
+ * - NO CLUSTERING: the final order spaces types out so the same type doesn't
+ *   play back-to-back when the mix allows it (guaranteed by a per-type cap).
  *
- * Capped at what the bank holds.
+ * Every call reshuffles, so consecutive games differ; ids are always distinct.
  */
 export function pickQuestionIds(
   count: number,
   difficulty: Difficulty = "mixed",
 ): string[] {
-  if (difficulty !== "mixed") {
-    const pool = shuffle(QUESTION_BANK.filter((q) => q.tier === difficulty));
-    return pool.slice(0, Math.min(count, pool.length)).map((q) => q.id);
-  }
+  if (count <= 0) return [];
+  const eligible =
+    difficulty === "mixed"
+      ? QUESTION_BANK
+      : QUESTION_BANK.filter((q) => q.tier === difficulty);
+  if (eligible.length === 0) return [];
+  const n = Math.min(count, eligible.length);
 
-  // Mixed: take one from each tier in rotation until we have enough.
-  const pools = TIER_ORDER.map((t) =>
-    shuffle(QUESTION_BANK.filter((q) => q.tier === t)),
-  );
+  // Group by type; shuffle each so ties resolve randomly.
+  const groups: Record<string, Question[]> = {};
+  for (const q of eligible) (groups[q.type] ??= []).push(q);
+  for (const t of Object.keys(groups)) groups[t] = shuffle(groups[t]);
+
+  // Per-type caps: backbone (mc/tf) may fill up to half (keeps a clustering-free
+  // order achievable); the special types stay a light sprinkle.
+  const backboneCap = Math.max(1, Math.ceil(n / 2));
+  const specialCap = Math.max(1, Math.round(n / 8));
+  const capFor = (type: string) =>
+    SPECIAL_TYPES.has(type) ? specialCap : backboneCap;
+
   const picked: Question[] = [];
-  let progressed = true;
-  while (picked.length < count && progressed) {
-    progressed = false;
-    for (const pool of pools) {
-      if (picked.length >= count) break;
-      const q = pool.pop();
-      if (q) {
-        picked.push(q);
-        progressed = true;
+  const used = new Set<string>();
+  const typeCount: Record<string, number> = {};
+  const tierCount: Record<string, number> = {};
+  const take = (q: Question) => {
+    picked.push(q);
+    used.add(q.id);
+    typeCount[q.type] = (typeCount[q.type] ?? 0) + 1;
+    tierCount[q.tier] = (tierCount[q.tier] ?? 0) + 1;
+  };
+  // Of the candidates, choose one in the currently least-represented tier (so
+  // tiers stay balanced); the pre-shuffle makes ties random.
+  const pickLeastTier = (cands: Question[]): Question | undefined => {
+    let best: Question | undefined;
+    let min = Infinity;
+    for (const q of cands) {
+      const tc = tierCount[q.tier] ?? 0;
+      if (tc < min) {
+        min = tc;
+        best = q;
       }
     }
+    return best;
+  };
+
+  // Coverage: one of every available type, tier-balanced.
+  for (const t of shuffle(Object.keys(groups))) {
+    if (picked.length >= n) break;
+    const q = pickLeastTier(groups[t].filter((x) => !used.has(x.id)));
+    if (q) take(q);
   }
-  return shuffle(picked).map((q) => q.id);
+
+  // Fill: honor the per-type caps + tier balance (mc/tf dominate naturally).
+  while (picked.length < n) {
+    let cands = eligible.filter(
+      (q) => !used.has(q.id) && (typeCount[q.type] ?? 0) < capFor(q.type),
+    );
+    if (cands.length === 0) cands = eligible.filter((q) => !used.has(q.id));
+    if (cands.length === 0) break;
+    const q = pickLeastTier(shuffle(cands));
+    if (!q) break;
+    take(q);
+  }
+
+  return spaceOutTypes(picked).map((q) => q.id);
 }
