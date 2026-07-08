@@ -1,8 +1,8 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Critter } from "@/components/character/Critter";
-import { characterFor } from "@/lib/character";
+import { ProfileAvatar } from "@/components/character/ProfileAvatar";
+import { assignTints, characterFor } from "@/lib/character";
 import { rankPlayers, type Player } from "@/lib/room";
 import { Confetti } from "./Confetti";
 
@@ -14,6 +14,7 @@ const STEP = [
 
 function Step({
   player,
+  tint,
   place,
   medal,
   height,
@@ -22,6 +23,7 @@ function Step({
   highlight,
 }: {
   player: Player;
+  tint: number;
   place: number;
   medal: string;
   height: string;
@@ -59,11 +61,11 @@ function Step({
           damping: place === 1 ? 11 : 16,
         }}
       >
-        <Critter
+        <ProfileAvatar
           character={characterFor(player)}
-          size={place === 1 ? 128 : 56}
+          tint={tint}
+          size={place === 1 ? 150 : 76}
           anim={place === 1 ? "wiggle" : "idle"}
-          className={place === 1 ? "size-24 sm:size-36" : "size-12 sm:size-20"}
         />
       </motion.div>
       <span
@@ -103,6 +105,7 @@ export function Podium({
   const ranked = rankPlayers(players);
   const winner = ranked[0];
   const byPlace = new Map(ranked.slice(0, 3).map((p, i) => [i + 1, p]));
+  const tints = assignTints(players);
 
   return (
     <div className="relative flex w-full flex-col items-center">
@@ -137,6 +140,7 @@ export function Podium({
             <Step
               key={place}
               player={player}
+              tint={tints[player.id] ?? 0}
               place={step.place}
               medal={step.medal}
               height={step.height}

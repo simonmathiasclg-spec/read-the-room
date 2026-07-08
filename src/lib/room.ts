@@ -7,7 +7,12 @@ import {
   update,
 } from "firebase/database";
 import { getDb } from "./firebase";
-import type { Character } from "./character";
+import {
+  deserializeCharacter,
+  serializeCharacter,
+  type Character,
+  type StoredCharacter,
+} from "./character";
 import { orderCloseness, sliderCloseness } from "./questions";
 
 export type RoomStatus = "lobby" | "question" | "reveal" | "podium";
@@ -56,7 +61,7 @@ type PlayerRecord = {
   joinedAt: number | object; // number once the server resolves serverTimestamp()
   score?: number;
   streak?: number;
-  character?: Character;
+  character?: StoredCharacter;
 };
 
 function randomPin(): string {
@@ -79,7 +84,7 @@ function parsePlayers(value: Record<string, PlayerRecord> | null): Player[] {
         joinedAt: typeof p.joinedAt === "number" ? p.joinedAt : 0,
         score: p.score ?? 0,
         streak: p.streak ?? 0,
-        character: p.character,
+        character: deserializeCharacter(p.character),
       }))
     : [];
   players.sort((a, b) => a.joinedAt - b.joinedAt);
@@ -126,7 +131,7 @@ export async function joinRoom(
   // update (not set) so a mid-game reconnect keeps the player's score/streak
   // (and existing character, when no new one is supplied).
   const data: Record<string, unknown> = { name, joinedAt: serverTimestamp() };
-  if (character) data.character = character;
+  if (character) data.character = serializeCharacter(character);
   await update(ref(getDb(), `rooms/${pin}/players/${playerId}`), data);
 }
 
@@ -138,7 +143,7 @@ export async function updateCharacter(
 ): Promise<void> {
   await update(
     ref(getDb(), `rooms/${pin}/players/${playerId}/character`),
-    character,
+    serializeCharacter(character),
   );
 }
 

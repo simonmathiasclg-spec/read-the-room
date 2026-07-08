@@ -1,11 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Critter } from "@/components/character/Critter";
+import { ProfileAvatar } from "@/components/character/ProfileAvatar";
 import { Confetti } from "@/components/quiz/Confetti";
 import { Countdown } from "@/components/quiz/Countdown";
 import { Button } from "@/components/ui/Button";
-import { characterFor } from "@/lib/character";
+import { assignTints, characterFor } from "@/lib/character";
 import {
   countDefused,
   endDefuse,
@@ -276,6 +276,7 @@ function PodRow({
       </div>
     );
   }
+  const tints = assignTints(players);
   return (
     <div className="flex flex-1 flex-wrap content-center items-center justify-center gap-x-6 gap-y-3 py-2 sm:gap-x-10">
       {players.map((p) => {
@@ -291,11 +292,11 @@ function PodRow({
                   👑
                 </span>
               )}
-              <Critter
+              <ProfileAvatar
                 character={characterFor(p)}
+                tint={tints[p.id] ?? 0}
                 anim="idle"
-                size={140}
-                className="size-20 sm:size-28"
+                size={110}
               />
             </div>
             <span

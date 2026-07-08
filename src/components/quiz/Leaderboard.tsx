@@ -2,8 +2,8 @@
 
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
-import { Critter } from "@/components/character/Critter";
-import { characterFor } from "@/lib/character";
+import { ProfileAvatar } from "@/components/character/ProfileAvatar";
+import { assignTints, characterFor } from "@/lib/character";
 import { rankPlayers, type Player } from "@/lib/room";
 
 const MEDAL = ["🥇", "🥈", "🥉"];
@@ -39,6 +39,7 @@ export function Leaderboard({
     score: p.score - (deltas?.[p.id] ?? 0),
   }));
   const ordered = rankPlayers(showFinal ? players : previous).slice(0, max);
+  const tints = assignTints(players);
 
   return (
     <ul className="flex w-full flex-col gap-2.5">
@@ -59,7 +60,12 @@ export function Leaderboard({
             <span className="w-9 shrink-0 text-center text-xl font-black tabular-nums sm:text-2xl">
               {i < 3 ? MEDAL[i] : i + 1}
             </span>
-            <Critter character={characterFor(p)} size={38} className="shrink-0" />
+            <ProfileAvatar
+              character={characterFor(p)}
+              tint={tints[p.id] ?? 0}
+              size={40}
+              className="shrink-0"
+            />
             <span className="flex-1 truncate font-display text-lg font-extrabold sm:text-xl">
               {p.name}
               {me ? " · you" : ""}
