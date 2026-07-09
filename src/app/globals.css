@@ -114,6 +114,39 @@
   transform-origin: 50% 85%;
 }
 
+/* Emote: a quick celebratory bounce on the avatar + a popping bubble that
+   floats up. Auto-disabled under reduced motion (below). */
+@keyframes avatar-emote {
+  0% { transform: translateY(0) scale(1); }
+  20% { transform: translateY(-14%) scale(1.06); }
+  45% { transform: translateY(0) scale(0.98); }
+  70% { transform: translateY(-6%) scale(1.02); }
+  100% { transform: translateY(0) scale(1); }
+}
+.avatar-emote {
+  animation: avatar-emote 0.9s ease-in-out;
+  transform-origin: 50% 90%;
+}
+@keyframes avatar-emote-bubble {
+  0% { transform: translateX(-50%) translateY(6px) scale(0.4); opacity: 0; }
+  25% { transform: translateX(-50%) translateY(-2px) scale(1.12); opacity: 1; }
+  75% { transform: translateX(-50%) translateY(-9px) scale(1); opacity: 1; }
+  100% { transform: translateX(-50%) translateY(-18px) scale(0.9); opacity: 0; }
+}
+.avatar-emote-bubble {
+  animation: avatar-emote-bubble 1.4s ease-out forwards;
+  pointer-events: none;
+}
+@keyframes avatar-celebrate {
+  0%, 100% { transform: translateY(0) rotate(-2deg); }
+  35% { transform: translateY(-10%) rotate(2deg); }
+  70% { transform: translateY(0) rotate(-1deg); }
+}
+.avatar-celebrate {
+  animation: avatar-celebrate 0.95s ease-in-out infinite;
+  transform-origin: 50% 92%;
+}
+
 /* ============================================================
    Base
    ============================================================ */

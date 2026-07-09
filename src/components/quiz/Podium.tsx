@@ -1,9 +1,10 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { ProfileAvatar } from "@/components/character/ProfileAvatar";
-import { assignTints, characterFor } from "@/lib/character";
+import { Avatar } from "@/components/character/Avatar";
+import { assignVariants, characterFor } from "@/lib/character";
 import { rankPlayers, type Player } from "@/lib/room";
+import { useRoomEmotes } from "@/lib/useRoomEmotes";
 import { Confetti } from "./Confetti";
 
 const STEP = [
@@ -14,7 +15,8 @@ const STEP = [
 
 function Step({
   player,
-  tint,
+  variant,
+  emote,
   place,
   medal,
   height,
@@ -23,7 +25,8 @@ function Step({
   highlight,
 }: {
   player: Player;
-  tint: number;
+  variant: number;
+  emote?: string | null;
   place: number;
   medal: string;
   height: string;
@@ -61,11 +64,12 @@ function Step({
           damping: place === 1 ? 11 : 16,
         }}
       >
-        <ProfileAvatar
+        <Avatar
           character={characterFor(player)}
-          tint={tint}
-          size={place === 1 ? 150 : 76}
-          anim={place === 1 ? "wiggle" : "idle"}
+          variant={variant}
+          size={place === 1 ? 160 : 84}
+          emote={emote}
+          celebrating={!emote}
         />
       </motion.div>
       <span
@@ -98,14 +102,17 @@ function Step({
 export function Podium({
   players,
   highlightId,
+  pin,
 }: {
   players: Player[];
   highlightId?: string;
+  pin?: string;
 }) {
   const ranked = rankPlayers(players);
   const winner = ranked[0];
   const byPlace = new Map(ranked.slice(0, 3).map((p, i) => [i + 1, p]));
-  const tints = assignTints(players);
+  const variants = assignVariants(players);
+  const emotes = useRoomEmotes(pin ?? null);
 
   return (
     <div className="relative flex w-full flex-col items-center">
@@ -140,7 +147,8 @@ export function Podium({
             <Step
               key={place}
               player={player}
-              tint={tints[player.id] ?? 0}
+              variant={variants[player.id] ?? 0}
+              emote={emotes[player.id]}
               place={step.place}
               medal={step.medal}
               height={step.height}

@@ -1,5 +1,5 @@
-import { ProfileAvatar } from "@/components/character/ProfileAvatar";
-import { assignTints, characterFor } from "@/lib/character";
+import { Avatar } from "@/components/character/Avatar";
+import { assignVariants, characterFor } from "@/lib/character";
 import type { Player } from "@/lib/room";
 
 type Tone = "light" | "stage";
@@ -45,7 +45,7 @@ export default function PlayerRoster({
       ) : (
         <ul className="flex flex-wrap gap-2.5">
           {(() => {
-            const tints = assignTints(players);
+            const variants = assignVariants(players);
             return players.map((p) => {
             const isMe = p.id === highlightId;
             const chip = isMe
@@ -59,10 +59,10 @@ export default function PlayerRoster({
                 style={{ animation: "var(--animate-pop)" }}
                 className={`flex max-w-[14rem] items-center gap-2 rounded-full py-1.5 pl-1.5 pr-4 text-base font-bold sm:text-lg ${chip}`}
               >
-                <ProfileAvatar
+                <Avatar
                   character={characterFor(p)}
-                  tint={tints[p.id] ?? 0}
-                  size={32}
+                  variant={variants[p.id] ?? 0}
+                  size={40}
                 />
                 <span className="truncate">
                   {p.name}

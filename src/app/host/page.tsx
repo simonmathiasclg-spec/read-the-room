@@ -363,7 +363,7 @@ export default function HostPage() {
   if (room.status === "podium") {
     return (
       <main className="stage flex flex-1 flex-col items-center justify-center gap-10 px-6 py-12">
-        <Podium players={room.players} />
+        <Podium players={room.players} pin={pin ?? undefined} />
         <Button onClick={handleNewRoom} variant="gold" size="lg">
           New game →
         </Button>
@@ -422,7 +422,7 @@ export default function HostPage() {
       </div>
 
       {/* Player critters — big, scattered, filling the screen as they join */}
-      <CritterScatter players={room.players} />
+      <CritterScatter players={room.players} pin={pin ?? undefined} />
 
       {/* Controls */}
       <div className="flex flex-col items-center gap-3">

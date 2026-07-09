@@ -1,9 +1,10 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { ProfileAvatar } from "@/components/character/ProfileAvatar";
-import { assignTints, characterFor } from "@/lib/character";
+import { Avatar } from "@/components/character/Avatar";
+import { assignVariants, characterFor } from "@/lib/character";
 import type { Player } from "@/lib/room";
+import { useRoomEmotes } from "@/lib/useRoomEmotes";
 
 /** Seeded per-player jitter (stable) so the scatter feels lively, not gridded. */
 function jitter(id: string) {
@@ -24,12 +25,15 @@ function jitter(id: string) {
 export function CritterScatter({
   players,
   highlightId,
+  pin,
 }: {
   players: Player[];
   highlightId?: string;
+  pin?: string;
 }) {
   const ordered = [...players].sort((a, b) => a.joinedAt - b.joinedAt);
-  const tints = assignTints(players);
+  const variants = assignVariants(players);
+  const emotes = useRoomEmotes(pin ?? null);
 
   if (ordered.length === 0) {
     return (
@@ -59,9 +63,10 @@ export function CritterScatter({
               className="flex flex-col items-center gap-2"
             >
               <div style={{ transform: `rotate(${j.rot}deg)` }}>
-                <ProfileAvatar
+                <Avatar
                   character={characterFor(p)}
-                  tint={tints[p.id] ?? 0}
+                  variant={variants[p.id] ?? 0}
+                  emote={emotes[p.id]}
                   anim="idle"
                   size={150}
                 />

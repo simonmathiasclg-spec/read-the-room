@@ -369,6 +369,32 @@ export function subscribeResults(
   });
 }
 
+/** A transient emote a player broadcasts (lobby / podium). */
+export type EmoteBroadcast = { key: string; at: number };
+
+/** Broadcast a player's emote to the room. */
+export async function sendEmote(
+  pin: string,
+  playerId: string,
+  key: string,
+): Promise<void> {
+  await set(ref(getDb(), `rooms/${pin}/emotes/${playerId}`), {
+    key,
+    at: serverTimestamp(),
+  });
+}
+
+/** Subscribe to everyone's latest emote (playerId → {key, at}). */
+export function subscribeEmotes(
+  pin: string,
+  onChange: (emotes: Record<string, EmoteBroadcast>) => void,
+): () => void {
+  const emotesRef = ref(getDb(), `rooms/${pin}/emotes`);
+  return onValue(emotesRef, (snap) => {
+    onChange(snap.exists() ? (snap.val() as Record<string, EmoteBroadcast>) : {});
+  });
+}
+
 /** Host reads the raw answers for a question (to show where people placed). */
 export function subscribeAnswers(
   pin: string,

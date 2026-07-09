@@ -6,6 +6,7 @@ import PlayerRoster from "@/components/PlayerRoster";
 import SetupNotice from "@/components/SetupNotice";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { CharacterBuilder } from "@/components/character/CharacterBuilder";
+import { EmoteBar } from "@/components/character/EmoteBar";
 import { DefusePhone } from "@/components/defuse/DefusePhone";
 import { PhoneButtons } from "@/components/quiz/PhoneButtons";
 import { PhoneOrder } from "@/components/quiz/PhoneOrder";
@@ -13,13 +14,19 @@ import { PhoneSlider } from "@/components/quiz/PhoneSlider";
 import { PhoneTrueFalse } from "@/components/quiz/PhoneTrueFalse";
 import { Glyph, TILES } from "@/components/quiz/tiles";
 import { Button, ButtonLink } from "@/components/ui/Button";
-import { makeDefaultCharacter, type Character } from "@/lib/character";
+import {
+  EMOTE_MAP,
+  makeDefaultCharacter,
+  variantFor,
+  type Character,
+} from "@/lib/character";
 import { optionOrder, questionById } from "@/lib/questions";
 import { isFirebaseConfigured } from "@/lib/firebase";
 import {
   joinRoom,
   rankPlayers,
   roomExists,
+  sendEmote,
   submitAnswer,
   submitOrder,
   submitPlacement,
@@ -297,6 +304,19 @@ export default function PlayPage() {
     [pin, name, playerId, character],
   );
 
+  const emoteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [emoteFlash, setEmoteFlash] = useState<string | null>(null);
+  const handleEmote = useCallback(
+    (key: string) => {
+      if (!pin || !playerId) return;
+      void sendEmote(pin, playerId, key);
+      setEmoteFlash(EMOTE_MAP[key]?.emoji ?? "🎉");
+      if (emoteTimer.current) clearTimeout(emoteTimer.current);
+      emoteTimer.current = setTimeout(() => setEmoteFlash(null), 900);
+    },
+    [pin, playerId],
+  );
+
   const handleLeave = useCallback(() => {
     localStorage.removeItem(SESSION_KEY);
     unsubscribe.current?.();
@@ -550,6 +570,12 @@ export default function PlayPage() {
           {!iWon && winner && (
             <p className="mt-1 text-psc-gray-2">🥇 {winner.name} took the crown</p>
           )}
+
+          <p className="mt-8 text-xs font-bold uppercase tracking-[0.18em] text-psc-gray-2">
+            React on the big screen
+          </p>
+          <EmoteBar onEmote={handleEmote} className="mt-2.5" />
+
           <Button
             onClick={handleLeave}
             variant="ghost"
@@ -558,6 +584,15 @@ export default function PlayPage() {
           >
             Leave
           </Button>
+          {emoteFlash && (
+            <span
+              aria-hidden
+              className="pointer-events-none fixed inset-x-0 bottom-32 z-50 text-center"
+              style={{ animation: "var(--animate-pop)" }}
+            >
+              <span className="text-7xl drop-shadow">{emoteFlash}</span>
+            </span>
+          )}
         </main>
       );
     }
@@ -585,6 +620,7 @@ export default function PlayPage() {
               <CharacterBuilder
                 character={character}
                 onChange={handleCharacterChange}
+                variant={variantFor(room?.players ?? [], playerId)}
               />
             </div>
           )}
@@ -592,6 +628,22 @@ export default function PlayPage() {
           <div className="mt-5 w-full rounded-2xl bg-psc-black px-6 py-4 text-lg font-extrabold text-white">
             👀 Look up at the big screen
           </div>
+
+          <div className="mt-5 w-full rounded-3xl border border-black/5 bg-white p-4 shadow-[0_2px_24px_rgba(17,17,17,0.07)]">
+            <p className="mb-2.5 text-xs font-bold uppercase tracking-[0.18em] text-psc-gray-2">
+              Emote
+            </p>
+            <EmoteBar onEmote={handleEmote} />
+          </div>
+          {emoteFlash && (
+            <span
+              aria-hidden
+              className="pointer-events-none fixed inset-x-0 bottom-24 z-50 text-center"
+              style={{ animation: "var(--animate-pop)" }}
+            >
+              <span className="text-7xl drop-shadow">{emoteFlash}</span>
+            </span>
+          )}
 
           <div className="mt-5 w-full rounded-3xl border border-black/5 bg-white p-5 text-left shadow-[0_2px_24px_rgba(17,17,17,0.07)]">
             <PlayerRoster
