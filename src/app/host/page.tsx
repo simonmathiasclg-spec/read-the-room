@@ -77,7 +77,9 @@ export default function HostPage() {
   const [origin, setOrigin] = useState("");
   const unsubscribe = useRef<(() => void) | null>(null);
 
-  // Mount: capture origin (for the QR/join URL) and resume a saved room.
+  // Mount: capture origin (for the QR/join URL) and restore only the difficulty
+  // preference. Hosting ALWAYS starts fresh — we never resume/join a leftover
+  // room, so we clear any stale saved PIN and land on the setup screen.
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time reads from window/localStorage
     setOrigin(window.location.origin);
@@ -85,9 +87,7 @@ export default function HostPage() {
     if (savedDifficulty && savedDifficulty in DIFFICULTY_LABELS) {
       setDifficulty(savedDifficulty as Difficulty);
     }
-    if (!isFirebaseConfigured) return;
-    const saved = localStorage.getItem(HOST_PIN_KEY);
-    if (saved) setPin(saved); // subscribe effect validates and may clear it
+    localStorage.removeItem(HOST_PIN_KEY);
   }, []);
 
   const handleDifficulty = useCallback((d: Difficulty) => {
@@ -130,8 +130,7 @@ export default function HostPage() {
     setError(null);
     try {
       const newPin = await createRoom(config);
-      localStorage.setItem(HOST_PIN_KEY, newPin);
-      setPin(newPin);
+      setPin(newPin); // session-only; never persisted, so a reload starts fresh
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong.");
     } finally {

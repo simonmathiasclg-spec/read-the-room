@@ -2,6 +2,7 @@ import {
   get,
   onValue,
   ref,
+  runTransaction,
   serverTimestamp,
   set,
   update,
@@ -92,23 +93,30 @@ function parsePlayers(value: Record<string, PlayerRecord> | null): Player[] {
 }
 
 /**
- * Create a fresh room with a unique 4-digit PIN and the host's chosen config.
- * Retries on the (rare) collision with an existing room before giving up.
+ * Create a brand-new, empty room with a unique 4-digit PIN and the host's chosen
+ * config. Uses a transaction to CLAIM the PIN atomically, so two hosts creating
+ * at the same instant can never land in the same room — if a PIN is already
+ * taken (or two hosts race the same PIN), the transaction aborts and we retry
+ * with a fresh PIN. The room is created with zero players.
  */
 export async function createRoom(config: RoomConfig): Promise<string> {
   const db = getDb();
-  for (let attempt = 0; attempt < 12; attempt++) {
+  for (let attempt = 0; attempt < 25; attempt++) {
     const pin = randomPin();
-    const snap = await get(ref(db, `rooms/${pin}`));
-    if (!snap.exists()) {
-      await set(ref(db, `rooms/${pin}`), {
-        status: "lobby" satisfies RoomStatus,
-        questionIndex: 0,
-        config,
-        createdAt: serverTimestamp(),
-      });
-      return pin;
-    }
+    const result = await runTransaction(
+      ref(db, `rooms/${pin}`),
+      (current) => {
+        if (current !== null) return; // slot already taken → abort, try another PIN
+        return {
+          status: "lobby" satisfies RoomStatus,
+          questionIndex: 0,
+          config,
+          createdAt: serverTimestamp(),
+        };
+      },
+      { applyLocally: false },
+    );
+    if (result.committed && result.snapshot.exists()) return pin;
   }
   throw new Error("Couldn't find a free PIN. Please try again.");
 }
