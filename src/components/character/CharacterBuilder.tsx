@@ -66,7 +66,8 @@ export function CharacterBuilder({
   onChange: (next: Character) => void;
   variant?: number;
 }) {
-  const [tab, setTab] = useState<TabKey>("outfit");
+  // Players pick their reference profile first, then customise from there.
+  const [tab, setTab] = useState<TabKey>("profile");
   const set = (patch: Partial<Character>) =>
     onChange({ ...character, ...patch });
 

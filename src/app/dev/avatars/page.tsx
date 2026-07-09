@@ -33,7 +33,8 @@ function char(
 }
 
 // A lobby that shows off distinctness (three Mavericks → three auto colors) plus
-// a spread of outfits + hats.
+// a spread of outfits + hats. Up to 16 so the waiting-room grid can be tested at
+// different head-counts via ?n= (e.g. /dev/avatars?n=15).
 const MOCK: Player[] = [
   { id: "a", name: "Ana", joinedAt: 1, score: 8200, streak: 4, character: char("Maverick", "auto", "suit", "crown") },
   { id: "b", name: "Ben", joinedAt: 2, score: 5100, streak: 0, character: char("Maverick", "auto", "gym", "cap") },
@@ -43,6 +44,14 @@ const MOCK: Player[] = [
   { id: "f", name: "Fay", joinedAt: 6, score: 4200, streak: 0, character: char("Analyzer", "auto", "varsity", "party") },
   { id: "g", name: "Gus", joinedAt: 7, score: 3800, streak: 0, character: char("Captain", "auto", "overalls", "grad") },
   { id: "h", name: "Hana", joinedAt: 8, score: 5600, streak: 3, character: char("Altruist", "auto", "casual", "flower") },
+  { id: "i", name: "Ivy", joinedAt: 9, score: 4800, streak: 0, character: char("Persuader", "violet", "dress", "none") },
+  { id: "j", name: "Jax", joinedAt: 10, score: 5200, streak: 1, character: char("Guardian", "teal", "gym", "cap") },
+  { id: "k", name: "Kim", joinedAt: 11, score: 6100, streak: 2, character: char("Operator", "gold", "hivis", "tophat") },
+  { id: "l", name: "Leo", joinedAt: 12, score: 3300, streak: 0, character: char("Scholar", "cobalt", "varsity", "grad") },
+  { id: "m", name: "Mia", joinedAt: 13, score: 7000, streak: 5, character: char("Adapter", "auto", "casual", "flower") },
+  { id: "n", name: "Noa", joinedAt: 14, score: 2900, streak: 0, character: char("Individualist", "green", "hoodie", "beanie") },
+  { id: "o", name: "Ola", joinedAt: 15, score: 4500, streak: 1, character: char("Collaborator", "pink", "overalls", "bow") },
+  { id: "p", name: "Pax", joinedAt: 16, score: 5900, streak: 3, character: char("Venturer", "orange", "suit", "party") },
 ];
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -82,8 +91,13 @@ export default function DevAvatarsPage() {
     makeDefaultCharacter("preview-me"),
   );
   const [mounted, setMounted] = useState(false);
-  // eslint-disable-next-line react-hooks/set-state-in-effect -- dev-only mount gate
-  useEffect(() => setMounted(true), []);
+  const [n, setN] = useState(8);
+  useEffect(() => {
+    setMounted(true);
+    const p = new URLSearchParams(window.location.search).get("n");
+    if (p) setN(Math.max(1, Math.min(MOCK.length, Number(p) || 8)));
+  }, []);
+  const lobby = MOCK.slice(0, n);
 
   return (
     <main className="mx-auto w-full max-w-5xl px-4 py-8">
@@ -137,9 +151,9 @@ export default function DevAvatarsPage() {
         </div>
       </Section>
 
-      <Section title="Waiting room (host stage)">
-        <div className="flex min-h-[360px] flex-col rounded-3xl bg-psc-ink p-6">
-          {mounted && <CritterScatter players={MOCK} highlightId="c" />}
+      <Section title={`Waiting room (host stage) — ${n} players`}>
+        <div className="flex h-[70vh] flex-col rounded-3xl bg-psc-ink p-6">
+          {mounted && <CritterScatter players={lobby} highlightId={lobby[2]?.id} />}
         </div>
       </Section>
 

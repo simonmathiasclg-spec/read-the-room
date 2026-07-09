@@ -62,6 +62,7 @@ export function Avatar({
   const skin = OUTFIT_ART[character.outfit] ?? OUTFIT_ART.casual;
   const legColor = skin?.legs?.(col) ?? col.base;
   const armColor = skin?.arms?.(col) ?? col.base;
+  const footColor = skin?.feet?.(col) ?? col.deep;
   const neckMid: Pt = [
     (j.shoulderL[0] + j.shoulderR[0]) / 2,
     (j.shoulderL[1] + j.shoulderR[1]) / 2,
@@ -104,8 +105,8 @@ export function Avatar({
         {skin?.art?.(j, col, b)}
 
         {/* feet + hands sit on top of trousers / sleeves */}
-        <Foot at={j.footL} from={j.kneeL} color={col} />
-        <Foot at={j.footR} from={j.kneeR} color={col} />
+        <Foot at={j.footL} from={j.kneeL} fill={footColor} />
+        <Foot at={j.footR} from={j.kneeR} fill={footColor} />
         <circle cx={j.handL[0]} cy={j.handL[1]} r={b.hand} fill={armColor} />
         <circle cx={j.handR[0]} cy={j.handR[1]} r={b.hand} fill={armColor} />
 
@@ -193,7 +194,7 @@ function torsoPath(j: Joints): string {
   );
 }
 
-function Foot({ at, from, color }: { at: Pt; from: Pt; color: BodyColor }) {
+function Foot({ at, from, fill }: { at: Pt; from: Pt; fill: string }) {
   const ang = Math.atan2(at[1] - from[1], at[0] - from[0]) * (180 / Math.PI);
   return (
     <ellipse
@@ -201,7 +202,7 @@ function Foot({ at, from, color }: { at: Pt; from: Pt; color: BodyColor }) {
       cy={at[1] + 0.5}
       rx="5"
       ry="2.9"
-      fill={color.deep}
+      fill={fill}
       transform={`rotate(${ang - 90} ${at[0]} ${at[1]})`}
     />
   );
@@ -220,10 +221,24 @@ const HIVIS = "#eaf23a";
 const HIVIS_TROUSER = "#26364a";
 const REFLECT = "#e9edf3";
 const CREAM = "#efe7d2";
+// summer casual
+const HAWAII = "#17a6b8"; // bright teal aloha shirt
+const HAWAII_DK = "#0f7d8c";
+const KHAKI = "#e7c98f"; // sandy shorts
+const LEAF = "#ffd54a";
+// gym
+const GYM_SHORT = "#1f2430"; // sporty charcoal shorts
+const SNEAKER = "#f4f6fb";
+const GYM_TRIM = "#ffffff";
+// dress
+const DRESS = "#d6337f"; // a distinct dress colour
+const DRESS_DK = "#a51f60";
+const DRESS_TRIM = "#ffd1e4";
 
 type OutfitArt = {
   legs?: (c: BodyColor) => string;
   arms?: (c: BodyColor) => string;
+  feet?: (c: BodyColor) => string;
   art?: (j: Joints, c: BodyColor, b: BodyProps) => React.ReactNode;
 };
 
@@ -242,16 +257,31 @@ function Cap({ ps, w, color }: { ps: Pt[]; w: number; color: string }) {
 }
 
 const OUTFIT_ART: Record<string, OutfitArt> = {
-  // Plain coloured figure (tee + shorts implied).
+  // Summer look — khaki shorts + a bright short-sleeve aloha shirt.
   casual: {
-    art: (j, c, b) => (
-      // short sleeve cuffs + a subtle waist line so it reads as clothed
-      <>
-        <Cap ps={[j.shoulderL, mid(j.shoulderL, j.elbowL, 0.5)]} w={b.limb + 1} color={c.deep} />
-        <Cap ps={[j.shoulderR, mid(j.shoulderR, j.elbowR, 0.5)]} w={b.limb + 1} color={c.deep} />
-        <line x1={j.hipL[0] - 1} y1={j.pelvis[1] - 1} x2={j.hipR[0] + 1} y2={j.pelvis[1] - 1} stroke={c.deep} strokeWidth="2.4" strokeLinecap="round" />
-      </>
-    ),
+    art: (j, _c, b) => {
+      const top = j.neck;
+      return (
+        <>
+          {/* khaki summer shorts (upper legs) */}
+          <Cap ps={[j.hipL, mid(j.hipL, j.kneeL, 0.5)]} w={b.limb + 1.4} color={KHAKI} />
+          <Cap ps={[j.hipR, mid(j.hipR, j.kneeR, 0.5)]} w={b.limb + 1.4} color={KHAKI} />
+          {/* aloha shirt body + short sleeves */}
+          <path d={torsoPath(j)} fill={HAWAII} />
+          <Cap ps={[j.shoulderL, mid(j.shoulderL, j.elbowL, 0.42)]} w={b.limb + 1} color={HAWAII} />
+          <Cap ps={[j.shoulderR, mid(j.shoulderR, j.elbowR, 0.42)]} w={b.limb + 1} color={HAWAII} />
+          {/* open collar */}
+          <path d={`M${top[0]} ${top[1] - 1} l-3.4 3 l1.7 1.2 l1.7 -2.6 Z`} fill={HAWAII_DK} />
+          <path d={`M${top[0]} ${top[1] - 1} l3.4 3 l-1.7 1.2 l-1.7 -2.6 Z`} fill={HAWAII_DK} />
+          {/* button placket + tropical dots */}
+          <line x1={top[0]} y1={top[1] + 2} x2={top[0]} y2={j.pelvis[1] - 2} stroke={HAWAII_DK} strokeWidth="0.9" />
+          <circle cx={top[0] - 4} cy={top[1] + 6} r="1.5" fill={LEAF} />
+          <circle cx={top[0] + 4} cy={top[1] + 9} r="1.5" fill={LEAF} />
+          <circle cx={top[0] - 3} cy={top[1] + 12} r="1.2" fill={SHIRT} />
+          <circle cx={top[0] + 5} cy={top[1] + 4} r="1.1" fill={SHIRT} />
+        </>
+      );
+    },
   },
 
   // Full INK suit: jacket torso + long sleeves + trousers, white shirt V + tie.
@@ -283,48 +313,60 @@ const OUTFIT_ART: Record<string, OutfitArt> = {
     },
   },
 
-  // Full-length dress: fitted bodice + wide flared skirt to the knee.
+  // A proper full-length dress in its own distinct colour: fitted bodice +
+  // straps + a wide flared skirt down to the ankles.
   dress: {
-    art: (j, c) => {
+    art: (j) => {
       const waistY = j.pelvis[1];
-      const hemY = j.pelvis[1] + 19;
+      const hemY = j.pelvis[1] + 26; // near the ankles = full length
       const cx = midPt(j.hipL, j.hipR)[0];
+      const top = j.neck;
       return (
         <>
           {/* bodice */}
-          <path d={torsoPath(j)} fill={c.base} />
-          {/* flared skirt */}
+          <path d={torsoPath(j)} fill={DRESS} />
+          {/* shoulder straps */}
+          <line x1={j.shoulderL[0] + 1.5} y1={j.shoulderL[1]} x2={cx - 3} y2={top[1] + 1} stroke={DRESS} strokeWidth="2.2" strokeLinecap="round" />
+          <line x1={j.shoulderR[0] - 1.5} y1={j.shoulderR[1]} x2={cx + 3} y2={top[1] + 1} stroke={DRESS} strokeWidth="2.2" strokeLinecap="round" />
+          {/* full-length flared skirt */}
           <path
-            d={`M${j.hipL[0] - 0.5} ${waistY - 1} L${j.hipR[0] + 0.5} ${waistY - 1} L${cx + 16} ${hemY} Q${cx} ${hemY + 4} ${cx - 16} ${hemY} Z`}
-            fill={c.base}
-            stroke={c.deep}
+            d={`M${j.hipL[0] - 1} ${waistY - 1} L${j.hipR[0] + 1} ${waistY - 1} L${cx + 18} ${hemY} Q${cx} ${hemY + 4} ${cx - 18} ${hemY} Z`}
+            fill={DRESS}
+            stroke={DRESS_DK}
             strokeWidth="1"
             strokeLinejoin="round"
           />
-          {/* waist sash + neckline */}
-          <line x1={j.hipL[0] - 1} y1={waistY - 1} x2={j.hipR[0] + 1} y2={waistY - 1} stroke={c.deep} strokeWidth="2.4" />
-          <path d={`M${cx - 4} ${j.neck[1] + 1} Q${cx} ${j.neck[1] + 5} ${cx + 4} ${j.neck[1] + 1}`} fill="none" stroke={c.deep} strokeWidth="1.6" strokeLinecap="round" />
+          {/* waist sash, neckline + hem trim */}
+          <line x1={j.hipL[0] - 1} y1={waistY - 1} x2={j.hipR[0] + 1} y2={waistY - 1} stroke={DRESS_TRIM} strokeWidth="2.2" />
+          <path d={`M${cx - 4} ${top[1] + 1} Q${cx} ${top[1] + 5} ${cx + 4} ${top[1] + 1}`} fill="none" stroke={DRESS_TRIM} strokeWidth="1.6" strokeLinecap="round" />
+          <path d={`M${cx - 18} ${hemY} Q${cx} ${hemY + 4} ${cx + 18} ${hemY}`} fill="none" stroke={DRESS_TRIM} strokeWidth="1.3" />
         </>
       );
     },
   },
 
-  // Athletic: tank top + shorts.
+  // Athletic: sporty tank top + charcoal shorts (white stripe) + sneakers.
   gym: {
+    feet: () => SNEAKER,
     art: (j, c, b) => {
       const top = j.neck;
+      const kL = mid(j.hipL, j.kneeL, 0.52);
+      const kR = mid(j.hipR, j.kneeR, 0.52);
       return (
         <>
-          {/* tank straps (cut-in shoulders) */}
+          {/* athletic shorts + white side stripe */}
+          <Cap ps={[j.hipL, kL]} w={b.limb + 1.6} color={GYM_SHORT} />
+          <Cap ps={[j.hipR, kR]} w={b.limb + 1.6} color={GYM_SHORT} />
+          <Cap ps={[mid(j.hipL, j.kneeL, 0.14), kL]} w={1.5} color={GYM_TRIM} />
+          <Cap ps={[mid(j.hipR, j.kneeR, 0.14), kR]} w={1.5} color={GYM_TRIM} />
+          {/* tank top (bare shoulders = sleeveless) */}
           <path d={torsoPath(j)} fill={c.base} />
-          <path
-            d={`M${top[0] - 5} ${top[1]} L${top[0] - 2} ${top[1] + 5} L${top[0] + 2} ${top[1] + 5} L${top[0] + 5} ${top[1]}`}
-            fill={c.deep}
-          />
-          {/* shorts over the top of both legs */}
-          <Cap ps={[j.hipL, mid(j.hipL, j.kneeL, 0.55)]} w={b.limb + 1.4} color={c.deep} />
-          <Cap ps={[j.hipR, mid(j.hipR, j.kneeR, 0.55)]} w={b.limb + 1.4} color={c.deep} />
-          <line x1={top[0]} y1={top[1] + 6} x2={top[0]} y2={j.pelvis[1] - 2} stroke={SHIRT} strokeWidth="1.4" />
+          {/* cut-in armhole trims */}
+          <path d={`M${j.shoulderL[0] + 1.5} ${j.shoulderL[1] - 2} Q${j.shoulderL[0] - 1} ${j.shoulderL[1] + 4} ${j.shoulderL[0] + 3.5} ${j.shoulderL[1] + 7}`} fill="none" stroke={c.deep} strokeWidth="1.5" strokeLinecap="round" />
+          <path d={`M${j.shoulderR[0] - 1.5} ${j.shoulderR[1] - 2} Q${j.shoulderR[0] + 1} ${j.shoulderR[1] + 4} ${j.shoulderR[0] - 3.5} ${j.shoulderR[1] + 7}`} fill="none" stroke={c.deep} strokeWidth="1.5" strokeLinecap="round" />
+          {/* neckline + chest band */}
+          <path d={`M${top[0] - 3.5} ${top[1]} Q${top[0]} ${top[1] + 4} ${top[0] + 3.5} ${top[1]}`} fill="none" stroke={c.deep} strokeWidth="1.6" strokeLinecap="round" />
+          <line x1={top[0] - 4} y1={j.pelvis[1] - 4} x2={top[0] + 4} y2={j.pelvis[1] - 4} stroke={GYM_TRIM} strokeWidth="1.8" />
         </>
       );
     },

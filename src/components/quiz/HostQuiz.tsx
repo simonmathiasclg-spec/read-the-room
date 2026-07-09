@@ -89,12 +89,25 @@ export function HostQuiz({ pin, room }: { pin: string; room: Room }) {
     void scoreAndReveal(pin, questionIndex, scoring, config.secondsPerQuestion);
   }, [pin, status, questionIndex, question, correctPos, config.secondsPerQuestion]);
 
+  // Latest reveal + roster size in refs so the answer-count subscription and the
+  // timer can trigger a reveal without re-subscribing when identities change.
+  const revealRef = useRef(reveal);
+  revealRef.current = reveal;
+  const playerCountRef = useRef(players.length);
+  playerCountRef.current = players.length;
+
   // Live answer count (during the question), tagged with its question index.
+  // This is ALSO the primary early-advance trigger: the moment the number of
+  // submitted answers reaches the active roster, reveal — regardless of the
+  // question type (mc / tf / graph / slider / order all write here), so a
+  // "build the profile" slider advances as soon as everyone locks in instead
+  // of waiting out the clock.
   useEffect(() => {
     if (status !== "question") return;
-    return subscribeAnswerCount(pin, questionIndex, (n) =>
-      setAnswered({ qi: questionIndex, n }),
-    );
+    return subscribeAnswerCount(pin, questionIndex, (n) => {
+      setAnswered({ qi: questionIndex, n });
+      if (n > 0 && n >= playerCountRef.current) revealRef.current();
+    });
   }, [pin, status, questionIndex]);
 
   // This round's scored results (for the leaderboard deltas).
@@ -124,18 +137,19 @@ export function HostQuiz({ pin, room }: { pin: string; room: Room }) {
       setRemaining(left);
       if (left <= 0) {
         clearInterval(id);
-        reveal();
+        revealRef.current();
       }
     }, 100);
     return () => clearInterval(id);
-  }, [status, questionIndex, config.secondsPerQuestion, reveal]);
+  }, [status, questionIndex, config.secondsPerQuestion]);
 
-  // Everyone answered *this* question → reveal early.
+  // Backup all-answered check off the render state (in case a count callback
+  // fired before the roster ref updated). `reveal` is idempotent per question.
   useEffect(() => {
     if (status === "question" && players.length > 0 && answeredNow >= players.length) {
-      reveal();
+      revealRef.current();
     }
-  }, [status, answeredNow, players.length, reveal]);
+  }, [status, answeredNow, players.length]);
 
   const deltas = useMemo(() => {
     const d: Record<string, number> = {};
