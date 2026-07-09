@@ -18,7 +18,6 @@
 export type Character = {
   profile: string; // one of PROFILES — the head icon (never altered)
   bodyColor: string; // a BODY_COLORS key, or "auto" for roster-distinct default
-  bodyType: string; // a BODY_TYPES key (build)
   outfit: string; // an OUTFITS key
   hat: string; // a HATS key (sits above the head)
 };
@@ -96,13 +95,6 @@ export const OUTFIT_LABELS: Record<string, string> = {
   hivis: "Hi-vis",
   varsity: "Varsity",
   overalls: "Overalls",
-};
-
-export const BODY_TYPES = ["skinny", "muscular", "broad"] as const;
-export const BODY_TYPE_LABELS: Record<string, string> = {
-  skinny: "Slim",
-  muscular: "Buff",
-  broad: "Broad",
 };
 
 export const HATS = [
@@ -201,7 +193,6 @@ export function makeDefaultCharacter(id: string): Character {
   return {
     profile: PROFILES[h % PROFILES.length],
     bodyColor: "auto",
-    bodyType: BODY_TYPES[(h >>> 7) % BODY_TYPES.length],
     outfit: "casual",
     hat: "none",
   };
@@ -217,9 +208,6 @@ export function characterFor(player: {
   return {
     profile: c.profile,
     bodyColor: c.bodyColor || "auto",
-    bodyType: BODY_TYPES.includes(c.bodyType as (typeof BODY_TYPES)[number])
-      ? c.bodyType
-      : def.bodyType,
     outfit: OUTFITS.includes(c.outfit as (typeof OUTFITS)[number])
       ? c.outfit
       : "casual",
@@ -238,16 +226,12 @@ export type StoredCharacter = {
 
 export function serializeCharacter(c: Character): StoredCharacter {
   const hatIdx = Math.max(0, HATS.indexOf(c.hat as (typeof HATS)[number]));
-  const bodyIdx = Math.max(
-    0,
-    BODY_TYPES.indexOf(c.bodyType as (typeof BODY_TYPES)[number]),
-  );
-  // Pack body-type + hat into the single numeric `accent` slot (no rules change).
+  // Hat index rides in the single numeric `accent` slot (no rules change).
   return {
     animal: c.profile,
     color: (c.bodyColor || "auto").slice(0, 16),
     accessory: (c.outfit || "casual").slice(0, 16),
-    accent: Math.min(360, bodyIdx * 16 + hatIdx),
+    accent: Math.min(360, hatIdx),
   };
 }
 
@@ -266,8 +250,8 @@ export function deserializeCharacter(
   return {
     profile: raw.animal ?? "",
     bodyColor,
-    bodyType: BODY_TYPES[Math.floor(accent / 16)] ?? "skinny",
     outfit,
+    // Legacy rows packed body-type into the high bits; mask to the hat index.
     hat: HATS[accent % 16] ?? "none",
   };
 }

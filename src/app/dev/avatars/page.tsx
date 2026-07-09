@@ -28,9 +28,8 @@ function char(
   bodyColor = "auto",
   outfit = "casual",
   hat = "none",
-  bodyType = "skinny",
 ): Character {
-  return { profile, bodyColor, bodyType, outfit, hat };
+  return { profile, bodyColor, outfit, hat };
 }
 
 // A lobby that shows off distinctness (three Mavericks → three auto colors) plus

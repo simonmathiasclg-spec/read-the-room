@@ -20,7 +20,7 @@ export type Pose = {
 };
 
 export type BodyProps = {
-  stroke: number;
+  limb: number; // limb capsule thickness (legs/arms)
   shoulder: number; // half shoulder span
   hip: number; // half hip span
   upperArm: number;
@@ -31,14 +31,27 @@ export type BodyProps = {
   headR: number;
 };
 
-export const BODY_PROPS: Record<string, BodyProps> = {
-  skinny: { stroke: 5.5, shoulder: 8, hip: 5, upperArm: 12, foreArm: 11, thigh: 14, shin: 14, hand: 3.1, headR: 14 },
-  muscular: { stroke: 8.5, shoulder: 11.5, hip: 5.5, upperArm: 11.5, foreArm: 10.5, thigh: 13.5, shin: 13.5, hand: 4, headR: 14 },
-  broad: { stroke: 9.5, shoulder: 12.5, hip: 8.5, upperArm: 11.5, foreArm: 10.5, thigh: 13, shin: 13.5, hand: 4.3, headR: 14 },
+/**
+ * A single, slim build. Proportions are tuned so the figure reads as a little
+ * PERSON — head ≈ ¼ of the standing height, a substantial torso, and limbs
+ * thick enough to look like arms/legs rather than an armature.
+ */
+export const BODY: BodyProps = {
+  limb: 7.4,
+  shoulder: 10.5,
+  hip: 7,
+  upperArm: 13,
+  foreArm: 12,
+  thigh: 15,
+  shin: 15,
+  hand: 3.3,
+  headR: 11.5,
 };
 
-export function bodyProps(bodyType: string): BodyProps {
-  return BODY_PROPS[bodyType] ?? BODY_PROPS.skinny;
+// Kept as a function for call-site compatibility; body type was removed, so
+// every character now uses the one slim build regardless of the argument.
+export function bodyProps(_bodyType?: string): BodyProps {
+  return BODY;
 }
 
 export type Joints = {
@@ -72,11 +85,11 @@ function rot(p: Pt, origin: Pt, deg: number): Pt {
   return [origin[0] + dx * c - dy * s, origin[1] + dx * s + dy * c];
 }
 
-const TORSO_LEN = 15;
+const TORSO_LEN = 22;
 
 export function computeJoints(pose: Pose, b: BodyProps): Joints {
   const dy = pose.bounce ?? 0;
-  const pelvis: Pt = [50, 63 + dy];
+  const pelvis: Pt = [50, 58 + dy];
   const lean = pose.lean ?? 0;
   // torso rises from the pelvis; lean rotates the upper body around the pelvis
   let neck: Pt = [50, pelvis[1] - TORSO_LEN];
@@ -107,52 +120,56 @@ export function computeJoints(pose: Pose, b: BodyProps): Joints {
 // ---- Signature poses, one per profile -----------------------------------
 // Authored by intent; verified visually. Angles: 0 down, + right, ±180 up.
 
-// leg presets (thigh, shin) — narrower + more varied than before
+// leg presets (thigh, shin)
 const L = {
   together: { l: [-3, -1] as [number, number], r: [3, 1] as [number, number] },
   stand: { l: [-7, -5] as [number, number], r: [7, 5] as [number, number] },
-  wide: { l: [-14, -12] as [number, number], r: [14, 12] as [number, number] },
-  lunge: { l: [-28, -12] as [number, number], r: [22, 42] as [number, number] },
+  planted: { l: [-11, -9] as [number, number], r: [11, 9] as [number, number] },
+  wide: { l: [-15, -13] as [number, number], r: [15, 13] as [number, number] },
+  contra: { l: [-4, -10] as [number, number], r: [13, 9] as [number, number] }, // weight on one leg
+  lunge: { l: [-30, -12] as [number, number], r: [22, 44] as [number, number] },
   leap: { l: [-34, -60] as [number, number], r: [28, 46] as [number, number] },
   step: { l: [-22, -26] as [number, number], r: [11, 7] as [number, number] },
   cross: { l: [-2, 0] as [number, number], r: [10, 30] as [number, number] },
 };
 
+// Each profile gets its OWN signature stance — combinations of arm gesture,
+// leg stance, lean and bounce chosen so all 17 read as visibly different.
 export const POSES: Record<string, Pose> = {
-  // thoughtful — right hand to chin, weight settled
-  Analyzer: { arms: { l: [-16, -13], r: [26, 208] }, legs: L.stand, headX: 1 },
-  // disciplined — arms crossed, firm wide stance
-  Controller: { arms: { l: [-72, 96], r: [72, -96] }, legs: L.wide },
-  // risk-taker — lunge forward, arm punching up-ahead
-  Venturer: { arms: { l: [-30, -60], r: [128, 148] }, legs: L.lunge, bounce: -1 },
-  // precise — hands clasped neatly at centre, feet together
-  Specialist: { arms: { l: [-20, 44], r: [20, -44] }, legs: L.together },
-  // visionary — one arm raised presenting the plan
-  Strategist: { arms: { l: [-18, -14], r: [150, 166] }, legs: L.stand },
-  // scholar — both hands up holding a book
-  Scholar: { arms: { l: [-40, -128], r: [40, 128] }, legs: L.together },
+  // thoughtful — right hand to chin, left arm across waist, weight on one leg
+  Analyzer: { lean: 2, headX: 1, arms: { l: [-14, 30], r: [30, 200] }, legs: L.contra },
+  // disciplined — arms crossed high, firm wide stance
+  Controller: { arms: { l: [-70, 92], r: [70, -92] }, legs: L.wide },
+  // risk-taker — deep lunge, right arm punching up-ahead
+  Venturer: { arms: { l: [-34, -70], r: [120, 150] }, legs: L.lunge, bounce: -1 },
+  // precise — hands clasped neatly at the waist, feet together
+  Specialist: { arms: { l: [-18, 46], r: [18, -46] }, legs: L.together },
+  // visionary — right arm raised presenting the plan, left hand on hip
+  Strategist: { arms: { l: [-52, -150], r: [150, 165] }, legs: L.planted },
+  // scholar — both hands holding a book up at the chest, feet together
+  Scholar: { arms: { l: [-40, -120], r: [40, 120] }, legs: L.together },
   // independent — cool crossed arms, leaning, ankle crossed
-  Individualist: { lean: 8, arms: { l: [-70, 98], r: [74, -92] }, legs: L.cross },
-  // social — arms wide, mid-pitch
-  Persuader: { arms: { l: [-74, -104], r: [74, 104] }, legs: L.wide },
-  // extravert — big wave, other hand out, light on feet
-  Promoter: { arms: { l: [-46, -84], r: [158, 148] }, legs: L.step, bounce: -1 },
-  // bold — fist up, leaping
-  Maverick: { arms: { l: [-24, -18], r: [172, 188] }, legs: L.leap, bounce: -6 },
-  // leader — point ahead, hand on hip, chest out
-  Captain: { lean: -3, arms: { l: [-56, -150], r: [96, 96] }, legs: L.wide },
-  // team — open welcoming arms
-  Collaborator: { arms: { l: [-52, -58], r: [52, 58] }, legs: L.stand },
-  // empathetic — hands to heart
-  Altruist: { arms: { l: [-22, 36], r: [22, -36] }, legs: L.together },
-  // steady — planted, arms ready and slightly out
-  Guardian: { arms: { l: [-26, -24], r: [26, 24] }, legs: L.wide },
-  // methodical — hands on hips
+  Individualist: { lean: 9, arms: { l: [-64, 100], r: [78, -88] }, legs: L.cross },
+  // social — big enthusiastic pitch, arms wide & up, right higher
+  Persuader: { arms: { l: [-84, -108], r: [116, 132] }, legs: L.stand },
+  // extravert — big wave (right up), left hand out, light on feet
+  Promoter: { arms: { l: [-58, -96], r: [156, 150] }, legs: L.step, bounce: -1 },
+  // bold — fist punched straight up, leaping, legs apart
+  Maverick: { arms: { l: [-22, -16], r: [174, 190] }, legs: L.leap, bounce: -6 },
+  // leader — right arm pointing ahead, left hand on hip, chest out, wide
+  Captain: { lean: -3, arms: { l: [-54, -150], r: [78, 74] }, legs: L.wide },
+  // team — both arms open welcoming, mid-height, planted
+  Collaborator: { arms: { l: [-54, -60], r: [54, 60] }, legs: L.planted },
+  // empathetic — both hands to the heart
+  Altruist: { lean: -2, arms: { l: [-28, 40], r: [28, -40] }, legs: L.together },
+  // steady — wide planted stance, arms low & slightly out (guarding)
+  Guardian: { arms: { l: [-18, -14], r: [18, 14] }, legs: L.wide },
+  // methodical — both hands on hips, wide stance
   Operator: { arms: { l: [-56, -150], r: [56, 150] }, legs: L.wide },
-  // craftsman — one hand raised holding a tool, other across
-  Artisan: { arms: { l: [-26, 40], r: [142, 176] }, legs: L.stand },
-  // flexible — dynamic mid-step, arms counter-balancing
-  Adapter: { lean: 4, arms: { l: [-96, -80], r: [40, 92] }, legs: L.step, bounce: -1 },
+  // craftsman — right hand raised holding a tool, left across body, mid-step
+  Artisan: { arms: { l: [-24, 44], r: [138, 172] }, legs: L.step },
+  // flexible — dynamic mid-step, arms counter-balancing, leaning
+  Adapter: { lean: 5, arms: { l: [-100, -84], r: [44, 96] }, legs: L.step, bounce: -1 },
 };
 
 const STAND_POSE: Pose = { arms: { l: [-14, -12], r: [14, 12] }, legs: L.stand };

@@ -40,7 +40,7 @@ function Step({
       animate={{ y: 0, opacity: 1 }}
       transition={{ delay, type: "spring", stiffness: 320, damping: 22 }}
       className={`flex flex-col items-center ${
-        place === 1 ? "w-32 sm:w-48" : "w-24 sm:w-40"
+        place === 1 ? "w-40 sm:w-56" : "w-32 sm:w-44"
       }`}
     >
       {place === 1 && (
@@ -67,7 +67,7 @@ function Step({
         <Avatar
           character={characterFor(player)}
           variant={variant}
-          size={place === 1 ? 160 : 84}
+          size={place === 1 ? 208 : 128}
           emote={emote}
           celebrating={!emote}
         />

@@ -3,8 +3,6 @@
 import { useState } from "react";
 import {
   BODY_COLORS,
-  BODY_TYPES,
-  BODY_TYPE_LABELS,
   HATS,
   HAT_LABELS,
   OUTFITS,
@@ -16,11 +14,10 @@ import {
 } from "@/lib/character";
 import { Avatar } from "./Avatar";
 
-type TabKey = "profile" | "color" | "body" | "outfit" | "hat";
+type TabKey = "profile" | "color" | "outfit" | "hat";
 const TABS: { key: TabKey; label: string }[] = [
   { key: "profile", label: "Profile" },
   { key: "color", label: "Color" },
-  { key: "body", label: "Body" },
   { key: "outfit", label: "Outfit" },
   { key: "hat", label: "Hat" },
 ];
@@ -79,7 +76,6 @@ export function CharacterBuilder({
     set({
       profile: pick(PROFILES),
       bodyColor: pick(BODY_COLORS).key,
-      bodyType: pick(BODY_TYPES),
       outfit: pick(OUTFITS),
       hat: pick(HATS),
     });
@@ -170,24 +166,6 @@ export function CharacterBuilder({
             >
               <Swatch color={col.base} />
               <span className="text-[11px] font-bold text-psc-gray-2">{col.name}</span>
-            </Tile>
-          ))}
-        </div>
-      )}
-
-      {tab === "body" && (
-        <div className="grid grid-cols-3 gap-2">
-          {BODY_TYPES.map((bt) => (
-            <Tile
-              key={bt}
-              label={BODY_TYPE_LABELS[bt]}
-              selected={character.bodyType === bt}
-              onClick={() => set({ bodyType: bt })}
-            >
-              <Avatar character={{ ...character, bodyType: bt }} variant={variant} size={64} />
-              <span className="text-[11px] font-bold text-psc-gray-2">
-                {BODY_TYPE_LABELS[bt]}
-              </span>
             </Tile>
           ))}
         </div>

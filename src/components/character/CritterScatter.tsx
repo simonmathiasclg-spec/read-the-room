@@ -45,8 +45,12 @@ export function CritterScatter({
     );
   }
 
+  // Shrink the figures a touch as the lobby fills so a big crowd still fits,
+  // but keep them large and proud for small/medium groups.
+  const size = ordered.length <= 6 ? 240 : ordered.length <= 12 ? 200 : 168;
+
   return (
-    <div className="flex flex-1 flex-wrap content-center items-center justify-center gap-x-6 gap-y-4 py-2 sm:gap-x-12">
+    <div className="flex flex-1 flex-wrap content-center items-center justify-center gap-x-8 gap-y-6 py-2 sm:gap-x-12">
       <AnimatePresence mode="popLayout">
         {ordered.map((p) => {
           const me = p.id === highlightId;
@@ -68,11 +72,11 @@ export function CritterScatter({
                   variant={variants[p.id] ?? 0}
                   emote={emotes[p.id]}
                   anim="idle"
-                  size={150}
+                  size={size}
                 />
               </div>
               <span
-                className={`max-w-[7.5rem] truncate rounded-full px-3 py-1 text-base font-extrabold sm:text-lg ${
+                className={`max-w-[9rem] truncate rounded-full px-4 py-1 text-lg font-extrabold sm:text-xl ${
                   me ? "bg-psc-red text-white" : "bg-white/10 text-white"
                 }`}
               >

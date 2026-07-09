@@ -8,8 +8,6 @@
 
 import { Avatar } from "@/components/character/Avatar";
 import {
-  BODY_TYPES,
-  BODY_TYPE_LABELS,
   EMOTES,
   HATS,
   HAT_LABELS,
@@ -22,7 +20,6 @@ import {
 const c = (over: Partial<Character>): Character => ({
   profile: "Captain",
   bodyColor: "cobalt",
-  bodyType: "skinny",
   outfit: "casual",
   hat: "none",
   ...over,
@@ -71,14 +68,6 @@ export default function DevPosesPage() {
         ))}
       </Row>
 
-      <Row title="Body types">
-        {BODY_TYPES.map((bt) => (
-          <Cell key={bt} label={BODY_TYPE_LABELS[bt]}>
-            <Avatar character={c({ profile: "Guardian", bodyType: bt })} size={112} />
-          </Cell>
-        ))}
-      </Row>
-
       <Row title="Outfits (on Persuader)">
         {OUTFITS.map((o) => (
           <Cell key={o} label={OUTFIT_LABELS[o]}>
@@ -114,7 +103,7 @@ export default function DevPosesPage() {
             { p: "Guardian", col: "teal", place: 3, h: "h-16" },
           ].map((s) => (
             <div key={s.place} className="flex flex-col items-center">
-              <Avatar character={c({ profile: s.p, bodyColor: s.col })} celebrating size={s.big ? 150 : 92} />
+              <Avatar character={c({ profile: s.p, bodyColor: s.col })} celebrating size={s.big ? 208 : 128} />
               <span className="mt-1 font-display text-lg font-black text-white">{s.p}</span>
               <div className={`mt-2 flex w-24 items-start justify-center rounded-t-2xl pt-2 ${s.h} ${s.place === 1 ? "bg-psc-gold" : s.place === 2 ? "bg-psc-gray-1" : "bg-[#cd7f32]"}`}>
                 <span className="font-display text-2xl font-black text-psc-black">{s.place}</span>
