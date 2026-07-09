@@ -254,17 +254,25 @@ function spaceOutTypes(items: Question[]): Question[] {
   return out;
 }
 
+/** A flavored mc — one carrying a style tag (spot-the-drive / odd-one-out / …). */
+function isFlavoredMc(q: Question): boolean {
+  return q.type === "mc" && !!q.style;
+}
+
 /**
- * Pick `count` question ids for a round. Beyond "distinct & random", the round:
+ * Pick `count` question ids for a round. A mixed round GUARANTEES variety —
+ * no whole type can be randomly dropped:
  *
- * - TYPE VARIETY: a coverage pass takes one of every available type
- *   (mc/tf/graph/slider/order) first, so none is ever missing. The rest is
- *   filled — mc/tf stay the backbone since the bank holds more of them, while
- *   the interactive/visual types are capped low so they stay a sprinkle.
- * - TIER SPREAD: every pick chooses the least-used tier so far, so a "mixed"
- *   round stays balanced across rookie/pro/practitioner instead of clustering.
- * - NO CLUSTERING: the final order spaces types out so the same type doesn't
- *   play back-to-back when the mix allows it (guaranteed by a per-type cap).
+ * - MINIMUMS: it first secures a spread — ≥2 true/false, ≥1 graph, ≥1 slider,
+ *   ≥1 order, and ≥1 flavored mc (scaled up for longer rounds), drawing the
+ *   rarest/most-droppable types first. Any type the bank has for the chosen
+ *   difficulty is therefore always present.
+ * - BACKBONE FILL: the remaining slots go to the mc/tf backbone, kept balanced
+ *   (fewest-of-its-type first) so a fully back-to-back-free order is achievable.
+ * - TIER SPREAD: every pick prefers the least-used tier, so a mixed round stays
+ *   balanced across rookie/pro/practitioner.
+ * - NO CLUSTERING: spaceOutTypes weaves the rare types through and alternates
+ *   the backbone, so no type ever plays back-to-back.
  *
  * Every call reshuffles, so consecutive games differ; ids are always distinct.
  */
@@ -280,21 +288,19 @@ export function pickQuestionIds(
   if (eligible.length === 0) return [];
   const n = Math.min(count, eligible.length);
 
-  // Group by type; shuffle each so ties resolve randomly.
-  const groups: Record<string, Question[]> = {};
-  for (const q of eligible) (groups[q.type] ??= []).push(q);
-  for (const t of Object.keys(groups)) groups[t] = shuffle(groups[t]);
-
-  // Per-type caps: backbone (mc/tf) may fill up to half (keeps a clustering-free
-  // order achievable); the special types stay a light sprinkle.
-  const backboneCap = Math.max(1, Math.ceil(n / 2));
-  const specialCap = Math.max(1, Math.round(n / 10));
-  const capFor = (type: string) =>
-    SPECIAL_TYPES.has(type) ? specialCap : backboneCap;
+  // Category pools (shuffled). `flavmc` is a subset of mc; `mc` is plain mc.
+  const pools: Record<string, Question[]> = {
+    graph: shuffle(eligible.filter((q) => q.type === "graph")),
+    slider: shuffle(eligible.filter((q) => q.type === "slider")),
+    order: shuffle(eligible.filter((q) => q.type === "order")),
+    tf: shuffle(eligible.filter((q) => q.type === "tf")),
+    flavmc: shuffle(eligible.filter(isFlavoredMc)),
+    mc: shuffle(eligible.filter((q) => q.type === "mc" && !q.style)),
+  };
 
   const picked: Question[] = [];
   const used = new Set<string>();
-  const typeCount: Record<string, number> = {};
+  const typeCount: Record<string, number> = {}; // by RENDER type (flavmc → mc)
   const tierCount: Record<string, number> = {};
   const take = (q: Question) => {
     picked.push(q);
@@ -302,36 +308,41 @@ export function pickQuestionIds(
     typeCount[q.type] = (typeCount[q.type] ?? 0) + 1;
     tierCount[q.tier] = (tierCount[q.tier] ?? 0) + 1;
   };
-  // Of the candidates, choose one in the currently least-represented tier (so
-  // tiers stay balanced); the pre-shuffle makes ties random.
-  const pickLeastTier = (cands: Question[]): Question | undefined => {
-    let best: Question | undefined;
-    let min = Infinity;
-    for (const q of cands) {
-      const tc = tierCount[q.tier] ?? 0;
-      if (tc < min) {
-        min = tc;
-        best = q;
-      }
+  // Take up to `want` from a category, choosing the least-used tier each time.
+  const takeFrom = (cat: string, want: number) => {
+    for (let k = 0; k < want && picked.length < n; k++) {
+      const cands = pools[cat].filter((q) => !used.has(q.id));
+      if (cands.length === 0) break;
+      let best = cands[0];
+      for (const q of cands)
+        if ((tierCount[q.tier] ?? 0) < (tierCount[best.tier] ?? 0)) best = q;
+      take(best);
     }
-    return best;
   };
 
-  // Coverage: one of every available type, tier-balanced.
-  for (const t of shuffle(Object.keys(groups))) {
-    if (picked.length >= n) break;
-    const q = pickLeastTier(groups[t].filter((x) => !used.has(x.id)));
-    if (q) take(q);
-  }
+  // --- Guaranteed variety minimums (rarest first so they're never squeezed
+  //     out). Scaled a little for longer rounds; capped by pool availability. ---
+  const perSpecial = Math.max(1, Math.round(n / 12));
+  takeFrom("graph", perSpecial);
+  takeFrom("slider", perSpecial);
+  takeFrom("order", perSpecial);
+  takeFrom("flavmc", Math.max(1, Math.round(n / 12)));
+  takeFrom("tf", Math.max(2, Math.round(n / 5)));
 
-  // Fill: honor the per-type caps, keeping the mc/tf backbone balanced (fewest
-  // of its type first) so the final order can be fully back-to-back-free; tier
-  // is the tie-breaker so a mixed round stays tier-balanced.
+  // --- Fill the rest with the mc/tf backbone, kept balanced + capped so a
+  //     clustering-free order stays achievable (no render type past half). ---
+  const backboneCap = Math.max(1, Math.ceil(n / 2));
+  const backbone = ["mc", "flavmc", "tf"];
   while (picked.length < n) {
-    let cands = eligible.filter(
-      (q) => !used.has(q.id) && (typeCount[q.type] ?? 0) < capFor(q.type),
-    );
-    if (cands.length === 0) cands = eligible.filter((q) => !used.has(q.id));
+    let cands: Question[] = [];
+    for (const cat of backbone)
+      cands.push(
+        ...pools[cat].filter(
+          (q) => !used.has(q.id) && (typeCount[q.type] ?? 0) < backboneCap,
+        ),
+      );
+    if (cands.length === 0)
+      cands = eligible.filter((q) => !used.has(q.id)); // relax if backbone dry
     if (cands.length === 0) break;
     let best: Question | null = null;
     for (const q of shuffle(cands)) {
