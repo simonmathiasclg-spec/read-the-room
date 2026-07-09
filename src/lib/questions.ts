@@ -202,26 +202,54 @@ function shuffle<T>(items: T[]): T[] {
  *  the backbone, both for pacing and because the bank holds few of them. */
 const SPECIAL_TYPES: ReadonlySet<string> = new Set(["graph", "slider", "order"]);
 
-/** Greedy reorder so the same question TYPE never sits back-to-back when that's
- *  possible: always place the most-plentiful remaining type that isn't the one
- *  just played. */
+/**
+ * Order a round so it feels varied throughout: the rare special types
+ * (graph/slider/order) are reserved into evenly-spaced slots so they're spread
+ * across the whole round (not clustered at the end), and the mc/tf backbone is
+ * greedily alternated around them — which, with balanced mc/tf, yields NO
+ * same-type back-to-back.
+ */
 function spaceOutTypes(items: Question[]): Question[] {
-  const buckets: Record<string, Question[]> = {};
-  for (const q of items) (buckets[q.type] ??= []).push(q);
+  const n = items.length;
+  const specials: Question[] = [];
+  const backbone: Record<string, Question[]> = {};
+  for (const q of items) {
+    if (SPECIAL_TYPES.has(q.type)) specials.push(q);
+    else (backbone[q.type] ??= []).push(q);
+  }
+  for (const t of Object.keys(backbone)) backbone[t] = shuffle(backbone[t]);
+
+  // Reserve evenly-spaced slots for the (shuffled) specials.
+  const spec = shuffle(specials);
+  const reserved = new Map<number, Question>();
+  const usedSlots = new Set<number>();
+  for (let k = 0; k < spec.length; k++) {
+    let slot = Math.min(n - 1, Math.floor(((k + 0.5) * n) / spec.length));
+    while (usedSlots.has(slot)) slot = (slot + 1) % n;
+    usedSlots.add(slot);
+    reserved.set(slot, spec[k]);
+  }
+
+  // Fill the rest with the backbone, always the most-plentiful type ≠ last.
   const out: Question[] = [];
   let last = "";
-  for (let k = 0; k < items.length; k++) {
-    let best: string | null = null;
-    for (const t of shuffle(Object.keys(buckets))) {
-      if (buckets[t].length === 0 || t === last) continue;
-      if (best === null || buckets[t].length > buckets[best].length) best = t;
+  for (let i = 0; i < n; i++) {
+    const r = reserved.get(i);
+    if (r) {
+      out.push(r);
+      last = r.type;
+      continue;
     }
-    // Only the just-played type is left → unavoidable; take whatever remains.
-    if (best === null)
-      best = Object.keys(buckets).find((t) => buckets[t].length > 0) ?? null;
-    if (best === null) break;
-    out.push(buckets[best].shift()!);
-    last = best;
+    const avail = Object.keys(backbone).filter((t) => backbone[t].length > 0);
+    let pick: string | null = null;
+    for (const t of shuffle(avail)) {
+      if (t === last) continue;
+      if (pick === null || backbone[t].length > backbone[pick].length) pick = t;
+    }
+    if (pick === null) pick = avail[0] ?? null;
+    if (!pick) continue;
+    out.push(backbone[pick].shift()!);
+    last = pick;
   }
   return out;
 }
@@ -260,7 +288,7 @@ export function pickQuestionIds(
   // Per-type caps: backbone (mc/tf) may fill up to half (keeps a clustering-free
   // order achievable); the special types stay a light sprinkle.
   const backboneCap = Math.max(1, Math.ceil(n / 2));
-  const specialCap = Math.max(1, Math.round(n / 8));
+  const specialCap = Math.max(1, Math.round(n / 10));
   const capFor = (type: string) =>
     SPECIAL_TYPES.has(type) ? specialCap : backboneCap;
 
@@ -296,16 +324,29 @@ export function pickQuestionIds(
     if (q) take(q);
   }
 
-  // Fill: honor the per-type caps + tier balance (mc/tf dominate naturally).
+  // Fill: honor the per-type caps, keeping the mc/tf backbone balanced (fewest
+  // of its type first) so the final order can be fully back-to-back-free; tier
+  // is the tie-breaker so a mixed round stays tier-balanced.
   while (picked.length < n) {
     let cands = eligible.filter(
       (q) => !used.has(q.id) && (typeCount[q.type] ?? 0) < capFor(q.type),
     );
     if (cands.length === 0) cands = eligible.filter((q) => !used.has(q.id));
     if (cands.length === 0) break;
-    const q = pickLeastTier(shuffle(cands));
-    if (!q) break;
-    take(q);
+    let best: Question | null = null;
+    for (const q of shuffle(cands)) {
+      const qt = typeCount[q.type] ?? 0;
+      const bt = best ? typeCount[best.type] ?? 0 : Infinity;
+      if (
+        best === null ||
+        qt < bt ||
+        (qt === bt && (tierCount[q.tier] ?? 0) < (tierCount[best.tier] ?? 0))
+      ) {
+        best = q;
+      }
+    }
+    if (!best) break;
+    take(best);
   }
 
   return spaceOutTypes(picked).map((q) => q.id);
